@@ -24,12 +24,12 @@ export default function Navbar({ onToggleHistory, isConnected, onOpenSettings })
 
         {/* Action Controls & Badges */}
         <div className="flex items-center space-x-3">
-          {/* MongoDB Status Badge */}
+          {/* Storage Status Badge */}
           <div className="hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-lg bg-slate-800/80 border border-slate-700/60 text-xs">
-            <Database className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="text-slate-300 font-medium">MongoDB:</span>
-            <span className={isConnected ? "text-emerald-400 font-semibold" : "text-amber-400 font-semibold"}>
-              {isConnected ? "Connected" : "Standalone"}
+            <Database className="w-3.5 h-3.5 text-sky-400" />
+            <span className="text-slate-300 font-medium">History Store:</span>
+            <span className={isConnected ? "text-emerald-400 font-semibold" : "text-sky-400 font-semibold"}>
+              {isConnected ? "MongoDB (Live)" : "Local Persistent (Active)"}
             </span>
           </div>
 
