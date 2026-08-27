@@ -6,7 +6,13 @@ export default function JsonViewer({ data }) {
 
   if (!data) return null;
 
-  const jsonString = JSON.stringify(data, null, 2);
+  // Clean payload for clean presentation (omit heavy base64 image dict if present)
+  const displayData = { ...data };
+  if (displayData.images) {
+    delete displayData.images;
+  }
+
+  const jsonString = JSON.stringify(displayData, null, 2);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(jsonString);
@@ -52,10 +58,12 @@ export default function JsonViewer({ data }) {
         </div>
       </div>
 
-      {/* Formatted Code Box */}
-      <pre className="p-5 text-xs text-slate-800 bg-slate-900 text-slate-100 overflow-auto max-h-96 font-mono leading-relaxed selection:bg-sky-500 selection:text-white">
-        <code>{jsonString}</code>
-      </pre>
+      {/* Formatted Code Box in Clean Light Theme */}
+      <div className="bg-slate-50/80 p-5 overflow-auto max-h-[500px]">
+        <pre className="text-xs text-slate-800 font-mono leading-relaxed whitespace-pre-wrap selection:bg-sky-200 selection:text-slate-900">
+          <code>{jsonString}</code>
+        </pre>
+      </div>
     </div>
   );
 }
