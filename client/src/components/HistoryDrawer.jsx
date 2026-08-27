@@ -1,22 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { X, Trash2, Calendar, FileText, CheckCircle2, XCircle, Search, RefreshCw } from 'lucide-react';
-import { getHistoryApi, deleteDocumentApi } from '../services/api';
+import { X, Trash2, FileText, Search, RefreshCw, ChevronRight } from 'lucide-react';
+import { getHistoryApi, deleteHistoryApi } from '../services/api';
 
 export default function HistoryDrawer({ isOpen, onClose, onSelectDocument }) {
   const [history, setHistory] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
 
   const fetchHistory = async () => {
-    setLoading(true);
+    setIsLoading(true);
     try {
-      const data = await getHistoryApi(1, 50, filterType);
+      const data = await getHistoryApi({ limit: 50, type: typeFilter || undefined });
       setHistory(data.documents || []);
-    } catch (err) {
-      console.error('Failed to fetch history:', err);
+    } catch (e) {
+      console.error('Failed to fetch history:', e);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -24,141 +24,154 @@ export default function HistoryDrawer({ isOpen, onClose, onSelectDocument }) {
     if (isOpen) {
       fetchHistory();
     }
-  }, [isOpen, filterType]);
+  }, [isOpen, typeFilter]);
 
   const handleDelete = async (e, id) => {
     e.stopPropagation();
-    if (!window.confirm('Delete this extraction record from MongoDB?')) return;
+    if (!window.confirm('Delete this extraction record?')) return;
     try {
-      await deleteDocumentApi(id);
-      setHistory(history.filter((doc) => doc._id !== id));
-    } catch (err) {
-      alert('Failed to delete document: ' + err.message);
+      await deleteHistoryApi(id);
+      setHistory((prev) => prev.filter((d) => d._id !== id));
+    } catch (e) {
+      alert('Failed to delete document.');
     }
   };
 
   if (!isOpen) return null;
 
-  const filteredDocs = history.filter((doc) => {
-    const name = doc.data?.name || '';
-    const num = doc.data?.aadhaar_number || doc.data?.pan_number || doc.data?.dl_number || '';
-    const q = searchTerm.toLowerCase();
-    return name.toLowerCase().includes(q) || num.toLowerCase().includes(q) || doc.originalFileName?.toLowerCase().includes(q);
+  const filteredHistory = history.filter((doc) => {
+    const term = search.toLowerCase();
+    const docType = (doc.documentType || '').toLowerCase();
+    const name = (doc.data?.name || '').toLowerCase();
+    const idNum = (
+      doc.data?.aadhaar_number ||
+      doc.data?.pan_number ||
+      doc.data?.dl_number ||
+      ''
+    ).toLowerCase();
+    return docType.includes(term) || name.includes(term) || idNum.includes(term);
   });
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-sm flex justify-end">
-      <div className="w-full max-w-md bg-slate-900 border-l border-slate-800 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
-        
-        {/* Header */}
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between">
-          <div>
-            <h3 className="text-base font-bold text-white">Extraction History</h3>
-            <p className="text-xs text-slate-400">Stored records in MongoDB</p>
-          </div>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={fetchHistory}
-              disabled={loading}
-              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
-              title="Refresh"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            </button>
+    <div className="fixed inset-0 z-50 overflow-hidden">
+      {/* Backdrop */}
+      <div 
+        onClick={onClose}
+        className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm transition-opacity"
+      />
+
+      <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
+        <div className="w-screen max-w-md bg-white border-l border-slate-200 shadow-2xl flex flex-col">
+          
+          {/* Header */}
+          <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">Extraction History</h2>
+              <p className="text-xs text-slate-500">Stored document verification records</p>
+            </div>
             <button
               onClick={onClose}
-              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+              className="p-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-700 border border-slate-200 transition"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
-        </div>
 
-        {/* Filters */}
-        <div className="p-4 border-b border-slate-800 space-y-3 bg-slate-950/40">
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-500" />
-            <input
-              type="text"
-              placeholder="Search by name, number, file..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-sky-500"
-            />
+          {/* Search & Filters */}
+          <div className="p-4 border-b border-slate-100 bg-white space-y-3">
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                placeholder="Search by name, ID number..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-sky-500"
+              />
+            </div>
+
+            <div className="flex gap-2">
+              {['', 'aadhaar', 'pan', 'driving_licence'].map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTypeFilter(t)}
+                  className={`text-[11px] px-2.5 py-1 rounded-md font-medium capitalize transition ${
+                    typeFilter === t
+                      ? 'bg-sky-600 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {t === '' ? 'All' : t.replace('_', ' ')}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="flex gap-1.5 overflow-x-auto text-xs">
-            {['', 'aadhaar', 'pan', 'driving_licence', 'unsupported'].map((t) => (
-              <button
-                key={t}
-                onClick={() => setFilterType(t)}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition ${
-                  filterType === t
-                    ? 'bg-sky-600 text-white'
-                    : 'bg-slate-800 text-slate-400 hover:text-white'
-                }`}
-              >
-                {t ? t.replace('_', ' ').toUpperCase() : 'ALL'}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Records List */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
-          {loading ? (
-            <div className="text-center py-12 text-slate-400 text-xs">Loading records...</div>
-          ) : filteredDocs.length === 0 ? (
-            <div className="text-center py-12 text-slate-500 text-xs">No records found in database.</div>
-          ) : (
-            filteredDocs.map((doc) => (
-              <div
-                key={doc._id}
-                onClick={() => {
-                  onSelectDocument({
-                    document_type: doc.documentType,
-                    is_valid: doc.isValid,
-                    short_circuited: doc.shortCircuited,
-                    data: doc.data,
-                    warnings: doc.warnings,
-                    ocr_confidence: doc.ocrConfidence,
-                    quality_report: doc.qualityReport,
-                    raw_ocr_text: doc.rawOcrText,
-                  });
-                  onClose();
-                }}
-                className="bg-slate-950/70 border border-slate-800 hover:border-slate-700 rounded-xl p-3.5 cursor-pointer transition flex flex-col justify-between group"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-800 text-sky-400 border border-slate-700/60">
-                      {doc.documentType}
-                    </span>
-                    <h4 className="text-sm font-semibold text-white mt-1.5 truncate max-w-[220px]">
-                      {doc.data?.name || doc.originalFileName || 'Untitled Document'}
-                    </h4>
-                  </div>
-                  <button
-                    onClick={(e) => handleDelete(e, doc._id)}
-                    className="opacity-0 group-hover:opacity-100 p-1.5 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition"
-                    title="Delete record"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between mt-3 text-[11px] text-slate-400 border-t border-slate-800/80 pt-2">
-                  <span>Confidence: <strong className="text-slate-200">{doc.ocrConfidence}%</strong></span>
-                  <span className="flex items-center space-x-1">
-                    <Calendar className="w-3 h-3" />
-                    <span>{new Date(doc.createdAt).toLocaleDateString()}</span>
-                  </span>
-                </div>
+          {/* List Area */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+                <RefreshCw className="w-6 h-6 animate-spin text-sky-600 mb-2" />
+                <p className="text-xs">Loading records...</p>
               </div>
-            ))
-          )}
-        </div>
+            ) : filteredHistory.length === 0 ? (
+              <div className="text-center py-16 text-slate-400">
+                <FileText className="w-10 h-10 mx-auto mb-2 text-slate-300" />
+                <p className="text-xs font-semibold text-slate-700">No records found</p>
+                <p className="text-[11px] text-slate-500 mt-1">Processed document extractions will be listed here.</p>
+              </div>
+            ) : (
+              filteredHistory.map((doc) => (
+                <div
+                  key={doc._id}
+                  onClick={() => {
+                    onSelectDocument({
+                      document_type: doc.documentType,
+                      is_valid: doc.isValid,
+                      short_circuited: doc.shortCircuited,
+                      data: doc.data,
+                      warnings: doc.warnings,
+                      ocr_confidence: doc.ocrConfidence,
+                      quality_report: doc.qualityReport,
+                      raw_ocr_text: doc.rawOcrText,
+                    });
+                    onClose();
+                  }}
+                  className="bg-white border border-slate-200 rounded-xl p-3.5 hover:border-sky-400 hover:shadow-sm cursor-pointer transition flex items-center justify-between group"
+                >
+                  <div className="overflow-hidden pr-2">
+                    <div className="flex items-center space-x-2 mb-1">
+                      <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200">
+                        {doc.documentType || 'document'}
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        {new Date(doc.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <h4 className="text-xs font-bold text-slate-800 truncate">
+                      {doc.data?.name || doc.originalFileName || 'Unnamed Document'}
+                    </h4>
+                    <p className="text-[11px] font-mono text-slate-500 truncate">
+                      {doc.data?.aadhaar_number || doc.data?.pan_number || doc.data?.dl_number || 'No ID Number'}
+                    </p>
+                  </div>
 
+                  <div className="flex items-center space-x-1">
+                    <button
+                      onClick={(e) => handleDelete(e, doc._id)}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition"
+                      title="Delete record"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                    <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-sky-600 transition" />
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+        </div>
       </div>
     </div>
   );

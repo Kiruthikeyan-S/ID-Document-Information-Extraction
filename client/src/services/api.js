@@ -55,6 +55,8 @@ export const deleteDocumentApi = async (id) => {
   return response.data;
 };
 
+export const deleteHistoryApi = deleteDocumentApi;
+
 /**
  * Fetches available Groq models from backend.
  */

@@ -65,7 +65,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
+    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
       
       {/* Navigation */}
       <Navbar
@@ -97,12 +97,12 @@ export default function App() {
               <button
                 onClick={handleExtract}
                 disabled={isLoading}
-                className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-sm shadow-lg shadow-sky-500/25 transition flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-bold text-sm shadow-md shadow-sky-600/20 transition flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {isLoading ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>Processing Image (OpenCV → Tesseract OCR → Decision Gate → Groq)...</span>
+                    <span>Processing Document (OpenCV Enhancement → OCR Detection → Extraction)...</span>
                   </>
                 ) : (
                   <>
@@ -127,11 +127,11 @@ export default function App() {
 
         {/* Error Alert Box */}
         {errorMessage && (
-          <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-2xl flex items-start space-x-3 text-rose-300">
-            <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0 mt-0.5" />
+          <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start space-x-3 text-rose-800 shadow-sm">
+            <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
             <div>
-              <h4 className="text-sm font-bold text-white">Extraction Request Failed</h4>
-              <p className="text-xs text-rose-200 mt-0.5">{errorMessage}</p>
+              <h4 className="text-sm font-bold text-rose-900">Extraction Request Failed</h4>
+              <p className="text-xs text-rose-700 mt-0.5">{errorMessage}</p>
             </div>
           </div>
         )}
@@ -141,13 +141,13 @@ export default function App() {
           <div className="space-y-4 animate-in fade-in-50 duration-300">
             
             {/* Tab Navigation */}
-            <div className="flex border-b border-slate-800 space-x-2">
+            <div className="flex border-b border-slate-200 space-x-2">
               <button
                 onClick={() => setActiveTab('fields')}
                 className={`flex items-center space-x-2 py-2.5 px-4 rounded-t-xl text-xs font-bold transition border-b-2 ${
                   activeTab === 'fields'
-                    ? 'border-sky-500 text-sky-400 bg-slate-900/80'
-                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                    ? 'border-sky-600 text-sky-700 bg-white shadow-sm'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
               >
                 <Sparkles className="w-4 h-4" />
@@ -158,8 +158,8 @@ export default function App() {
                 onClick={() => setActiveTab('pipeline')}
                 className={`flex items-center space-x-2 py-2.5 px-4 rounded-t-xl text-xs font-bold transition border-b-2 ${
                   activeTab === 'pipeline'
-                    ? 'border-sky-500 text-sky-400 bg-slate-900/80'
-                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                    ? 'border-sky-600 text-sky-700 bg-white shadow-sm'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
               >
                 <Eye className="w-4 h-4" />
@@ -170,8 +170,8 @@ export default function App() {
                 onClick={() => setActiveTab('ocr')}
                 className={`flex items-center space-x-2 py-2.5 px-4 rounded-t-xl text-xs font-bold transition border-b-2 ${
                   activeTab === 'ocr'
-                    ? 'border-sky-500 text-sky-400 bg-slate-900/80'
-                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                    ? 'border-sky-600 text-sky-700 bg-white shadow-sm'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
               >
                 <FileText className="w-4 h-4" />
@@ -182,8 +182,8 @@ export default function App() {
                 onClick={() => setActiveTab('json')}
                 className={`flex items-center space-x-2 py-2.5 px-4 rounded-t-xl text-xs font-bold transition border-b-2 ${
                   activeTab === 'json'
-                    ? 'border-sky-500 text-sky-400 bg-slate-900/80'
-                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                    ? 'border-sky-600 text-sky-700 bg-white shadow-sm'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
               >
                 <Code className="w-4 h-4" />
@@ -203,13 +203,13 @@ export default function App() {
 
             {/* Tab 3: Raw OCR & Spatial Text */}
             {activeTab === 'ocr' && (
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-4">
                 <div>
-                  <h3 className="text-base font-bold text-white">OCR Extracted Text & Line Sequences</h3>
-                  <p className="text-xs text-slate-400">Direct output from Tesseract OCR before Groq LLM parsing</p>
+                  <h3 className="text-base font-bold text-slate-900">OCR Extracted Text & Line Sequences</h3>
+                  <p className="text-xs text-slate-500">Text lines detected directly by Tesseract OCR</p>
                 </div>
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 max-h-[400px] overflow-auto">
-                  <pre className="text-xs text-slate-300 font-mono whitespace-pre-wrap leading-relaxed">
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 max-h-[400px] overflow-auto">
+                  <pre className="text-xs text-slate-800 font-mono whitespace-pre-wrap leading-relaxed">
                     {extractionResult.raw_ocr_text || 'No text detected.'}
                   </pre>
                 </div>

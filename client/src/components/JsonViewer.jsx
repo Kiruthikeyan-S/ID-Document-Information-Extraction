@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { Download, Copy, Check, Code } from 'lucide-react';
+import { Copy, Check, Download, Code2 } from 'lucide-react';
 
-export default function JsonViewer({ data, fileName = 'extraction_result' }) {
+export default function JsonViewer({ data }) {
   const [copied, setCopied] = useState(false);
+
+  if (!data) return null;
 
   const jsonString = JSON.stringify(data, null, 2);
 
@@ -17,7 +19,7 @@ export default function JsonViewer({ data, fileName = 'extraction_result' }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${fileName}.json`;
+    a.download = `extraction_${data.document_type || 'document'}_${Date.now()}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -25,28 +27,24 @@ export default function JsonViewer({ data, fileName = 'extraction_result' }) {
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
-        <div>
-          <h3 className="text-base font-bold text-white flex items-center space-x-2">
-            <Code className="w-4 h-4 text-sky-400" />
-            <span>Structured JSON Payload</span>
-          </h3>
-          <p className="text-xs text-slate-400">Validated output schema ready for API consumption</p>
+    <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm">
+      {/* Header with actions */}
+      <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div className="flex items-center space-x-2 text-slate-800">
+          <Code2 className="w-4 h-4 text-sky-600" />
+          <span className="text-xs font-bold">Structured JSON Output</span>
         </div>
-
         <div className="flex items-center space-x-2">
           <button
             onClick={handleCopy}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 text-xs font-medium transition"
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-medium transition shadow-sm"
           >
-            {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
+            {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
             <span>{copied ? 'Copied!' : 'Copy JSON'}</span>
           </button>
-
           <button
             onClick={handleDownload}
-            className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold shadow-md shadow-sky-600/20 transition"
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold transition shadow-sm"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Download .json</span>
@@ -54,12 +52,10 @@ export default function JsonViewer({ data, fileName = 'extraction_result' }) {
         </div>
       </div>
 
-      {/* Code Viewer */}
-      <div className="bg-slate-950 rounded-xl p-4 border border-slate-800 overflow-x-auto max-h-[500px]">
-        <pre className="text-xs text-sky-300 font-mono leading-relaxed">
-          <code>{jsonString}</code>
-        </pre>
-      </div>
+      {/* Formatted Code Box */}
+      <pre className="p-5 text-xs text-slate-800 bg-slate-900 text-slate-100 overflow-auto max-h-96 font-mono leading-relaxed selection:bg-sky-500 selection:text-white">
+        <code>{jsonString}</code>
+      </pre>
     </div>
   );
 }
