@@ -7,7 +7,6 @@ import sys
 import numpy as np
 import cv2
 
-# Test Schemas & Validation
 from schemas import (
     AadhaarData,
     PANData,
@@ -64,16 +63,13 @@ def test_pan_validation():
 
 def test_aadhaar_validation():
     print("Testing Aadhaar Validation & Masking...")
-    # 12 digits with spaces
     masked1, w1 = validate_and_mask_aadhaar("1234 5678 9012")
     assert masked1 == "********9012", f"Expected ********9012, got {masked1}"
     assert len(w1) == 0
 
-    # 12 digits continuous
     masked2, _ = validate_and_mask_aadhaar("987654321098")
     assert masked2 == "********1098", f"Expected ********1098, got {masked2}"
 
-    # Invalid digit count
     _, w3 = validate_and_mask_aadhaar("12345")
     assert len(w3) > 0, "Expected warning for invalid Aadhaar"
     print("  [PASS] Aadhaar Validation tests passed.")
@@ -108,7 +104,6 @@ def test_document_classification_heuristics():
 
 def test_preprocessing_synthetic():
     print("Testing OpenCV Preprocessing Pipeline...")
-    # Create a synthetic 800x500 test card image with text
     synthetic_img = np.ones((500, 800, 3), dtype=np.uint8) * 255
     cv2.putText(synthetic_img, "GOVERNMENT OF INDIA", (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 0), 2)
     cv2.putText(synthetic_img, "SURESH KUMAR", (50, 200), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 0), 2)
@@ -118,8 +113,8 @@ def test_preprocessing_synthetic():
     assert quality["height"] == 500
 
     processed = preprocess_id_card(synthetic_img)
-    assert len(processed.shape) == 2  # Grayscale
-    assert processed.shape[1] == 1800  # Resized to target_width
+    assert len(processed.shape) == 2
+    assert processed.shape[1] == 1800
     print("  [PASS] OpenCV Preprocessing tests passed.")
 
 

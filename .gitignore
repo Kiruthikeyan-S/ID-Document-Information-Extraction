@@ -9,12 +9,17 @@ venv/
 ENV/
 .venv/
 
+# Node.js
+node_modules/
+dist/
+build/
+.npm/
+package-lock.json
+
 # Environment variables
 .env
-.env.local
-
-# Streamlit
-.streamlit/
+.env.*
+!.env.example
 
 # Temporary files & uploads
 temp/

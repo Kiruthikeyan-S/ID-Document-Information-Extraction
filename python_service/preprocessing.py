@@ -26,15 +26,15 @@ def assess_image_quality(image: np.ndarray, blur_threshold: float = 80.0) -> Dic
         gray = image
 
     # Compute the Laplacian variance (focus metric)
-    laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
+    laplacian_var = float(cv2.Laplacian(gray, cv2.CV_64F).var())
     height, width = gray.shape[:2]
 
     return {
         "blur_score": round(float(laplacian_var), 2),
-        "is_blurry": laplacian_var < blur_threshold,
-        "width": width,
-        "height": height,
-        "is_too_small": width < 300 or height < 200
+        "is_blurry": bool(laplacian_var < blur_threshold),
+        "width": int(width),
+        "height": int(height),
+        "is_too_small": bool(width < 300 or height < 200)
     }
 
 
@@ -45,7 +45,7 @@ def to_grayscale(image: np.ndarray) -> np.ndarray:
     return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
 
-def resize_image(image: np.ndarray, target_width: int = 1600) -> np.ndarray:
+def resize_image(image: np.ndarray, target_width: int = 1800) -> np.ndarray:
     """
     Resizes image while maintaining aspect ratio to improve OCR readability
     for low-resolution scans.
@@ -57,13 +57,6 @@ def resize_image(image: np.ndarray, target_width: int = 1600) -> np.ndarray:
     scale = target_width / float(width)
     new_height = int(height * scale)
     return cv2.resize(image, (target_width, new_height), interpolation=cv2.INTER_CUBIC)
-
-
-def remove_noise(image: np.ndarray, kernel_size: int = 3) -> np.ndarray:
-    """Applies Gaussian blur to reduce high-frequency noise."""
-    if kernel_size % 2 == 0:
-        kernel_size += 1
-    return cv2.GaussianBlur(image, (kernel_size, kernel_size), 0)
 
 
 def enhance_contrast(image: np.ndarray, clip_limit: float = 2.0, tile_grid_size: Tuple[int, int] = (8, 8)) -> np.ndarray:
@@ -91,9 +84,8 @@ def reduce_glare_and_background(image: np.ndarray) -> np.ndarray:
 
 
 def remove_noise(image: np.ndarray, kernel_size: int = 3) -> np.ndarray:
-    """Applies Bilateral filter or Gaussian blur to preserve text edges while removing background texture."""
+    """Applies Bilateral filter to preserve text edges while removing background texture."""
     gray = to_grayscale(image)
-    # Bilateral filter preserves sharp text edges while smoothing background noise
     return cv2.bilateralFilter(gray, d=5, sigmaColor=50, sigmaSpace=50)
 
 

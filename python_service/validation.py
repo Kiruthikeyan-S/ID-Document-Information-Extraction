@@ -17,13 +17,7 @@ from schemas import (
 
 
 def normalize_date(raw_date: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
-    """
-    Normalizes various date formats (e.g. 15/08/2002, 15-08-2002, 2002/08/15)
-    into standard ISO format (YYYY-MM-DD).
-
-    Returns:
-        Tuple of (normalized_date_str, warning_message_if_any)
-    """
+    """Normalizes various date formats into standard ISO format (YYYY-MM-DD)."""
     if not raw_date or not isinstance(raw_date, str):
         return None, None
 
@@ -45,7 +39,6 @@ def normalize_date(raw_date: Optional[str]) -> Tuple[Optional[str], Optional[str
         if re.match(regex, date_str):
             try:
                 parsed = datetime.strptime(date_str, fmt)
-                # Sanity check year
                 if 1900 <= parsed.year <= datetime.now().year + 50:
                     return parsed.strftime("%Y-%m-%d"), None
                 else:
@@ -57,23 +50,17 @@ def normalize_date(raw_date: Optional[str]) -> Tuple[Optional[str], Optional[str
 
 
 def validate_and_mask_aadhaar(aadhaar_raw: Optional[str]) -> Tuple[Optional[str], List[str]]:
-    """
-    Validates that Aadhaar has exactly 12 digits and returns a masked version (********1234).
-    """
+    """Validates that Aadhaar has exactly 12 digits and returns masked version (********1234)."""
     warnings = []
     if not aadhaar_raw:
         return None, ["Aadhaar number is missing."]
 
-    # Strip whitespace, dashes, dots
     cleaned = re.sub(r"[\s\-\.]", "", str(aadhaar_raw))
 
-    # Match 12 digits
     if re.match(r"^\d{12}$", cleaned):
-        # Mask the first 8 digits for privacy compliance
         masked = "********" + cleaned[-4:]
         return masked, warnings
     
-    # Check if already masked
     if re.match(r"^[\*xX]{8}\d{4}$", cleaned):
         return cleaned, warnings
 
@@ -82,10 +69,7 @@ def validate_and_mask_aadhaar(aadhaar_raw: Optional[str]) -> Tuple[Optional[str]
 
 
 def validate_pan(pan_raw: Optional[str]) -> Tuple[Optional[str], List[str]]:
-    """
-    Validates PAN number against the standard regex: [A-Z]{5}[0-9]{4}[A-Z]{1}
-    and checks 4th character status code.
-    """
+    """Validates PAN number against standard regex: [A-Z]{5}[0-9]{4}[A-Z]{1}"""
     warnings = []
     if not pan_raw:
         return None, ["PAN number is missing."]
@@ -97,19 +81,11 @@ def validate_pan(pan_raw: Optional[str]) -> Tuple[Optional[str], List[str]]:
         warnings.append(f"PAN number '{pan_raw}' does not conform to AAAAA9999A format.")
         return cleaned, warnings
 
-    # Entity character check (4th character)
     entity_char = cleaned[3]
     valid_entities = {
-        'P': 'Individual',
-        'C': 'Company',
-        'H': 'HUF (Hindu Undivided Family)',
-        'F': 'Firm / LLP',
-        'A': 'Association of Persons (AOP)',
-        'T': 'Trust',
-        'B': 'Body of Individuals (BOI)',
-        'L': 'Local Authority',
-        'J': 'Artificial Juridical Person',
-        'G': 'Government Agency'
+        'P': 'Individual', 'C': 'Company', 'H': 'HUF', 'F': 'Firm / LLP',
+        'A': 'AOP', 'T': 'Trust', 'B': 'BOI', 'L': 'Local Authority',
+        'J': 'Artificial Juridical Person', 'G': 'Government Agency'
     }
     if entity_char not in valid_entities:
         warnings.append(f"PAN 4th character '{entity_char}' is non-standard.")
@@ -118,10 +94,7 @@ def validate_pan(pan_raw: Optional[str]) -> Tuple[Optional[str], List[str]]:
 
 
 def validate_driving_licence(dl_raw: Optional[str]) -> Tuple[Optional[str], List[str]]:
-    """
-    Validates Driving Licence format across Indian states.
-    Generally: 2-letter state code + 2-digit RTO + 4-digit year + 7-digit number.
-    """
+    """Validates Driving Licence format across Indian states."""
     warnings = []
     if not dl_raw:
         return None, ["Driving Licence number is missing."]
@@ -129,7 +102,6 @@ def validate_driving_licence(dl_raw: Optional[str]) -> Tuple[Optional[str], List
     cleaned = dl_raw.strip().upper().replace("-", " ").replace("/", " ")
     cleaned_no_space = cleaned.replace(" ", "")
 
-    # State code list (standard Indian state codes)
     state_codes = [
         "AN", "AP", "AR", "AS", "BR", "CH", "CG", "DD", "DL", "DN", "GA", "GJ",
         "HR", "HP", "JH", "JK", "KA", "KL", "LA", "LD", "MH", "ML", "MN", "MP",
@@ -140,7 +112,6 @@ def validate_driving_licence(dl_raw: Optional[str]) -> Tuple[Optional[str], List
     if prefix not in state_codes:
         warnings.append(f"Driving licence state code '{prefix}' may be invalid.")
 
-    # General length check for DL (typically 13-16 characters)
     if not (10 <= len(cleaned_no_space) <= 20):
         warnings.append(f"Driving licence length ({len(cleaned_no_space)}) is unusual.")
 
@@ -173,24 +144,22 @@ def clean_name(name_raw: Optional[str]) -> Optional[str]:
 def validate_and_clean_extraction(
     raw_data: Dict[str, Any],
     ocr_confidence: float = 0.0,
-    raw_ocr_text: Optional[str] = None
+    raw_ocr_text: Optional[str] = None,
+    quality_report: Optional[Dict[str, Any]] = None,
+    images: Optional[Dict[str, str]] = None,
+    short_circuited: bool = False
 ) -> FinalExtractionResult:
-    """
-    Main validation pipeline that parses LLM output into typed Pydantic models,
-    executes format rules, and computes warning logs.
-    """
+    """Main validation pipeline that parses LLM output into typed Pydantic models."""
     doc_type = raw_data.get("document_type", "unsupported").lower()
     warnings: List[str] = []
 
     if doc_type == "aadhaar":
-        # Check if aadhaar_number was missed by LLM, try fallback regex
         raw_num = raw_data.get("aadhaar_number")
         if not raw_num and raw_ocr_text:
             aadhaar_match = re.search(r"\b(\d{4}\s\d{4}\s\d{4})\b", raw_ocr_text) or re.search(r"\b(\d{12})\b", raw_ocr_text)
             if aadhaar_match:
                 raw_num = aadhaar_match.group(1)
 
-        # Validate Aadhaar fields
         name = clean_name(raw_data.get("name"))
         gender = sanitize_gender(raw_data.get("gender"))
         
@@ -223,21 +192,22 @@ def validate_and_clean_extraction(
         return FinalExtractionResult(
             document_type="aadhaar",
             is_valid=True,
+            short_circuited=False,
             data=aadhaar_model,
             warnings=warnings,
             ocr_confidence=ocr_confidence,
-            raw_ocr_text=raw_ocr_text
+            raw_ocr_text=raw_ocr_text,
+            quality_report=quality_report,
+            images=images or {}
         )
 
     elif doc_type == "pan":
-        # Check if pan_number was missed by LLM, try fallback regex
         raw_pan = raw_data.get("pan_number")
         if not raw_pan and raw_ocr_text:
             pan_match = re.search(r"\b([A-Z]{5}[0-9]{4}[A-Z]{1})\b", raw_ocr_text.upper())
             if pan_match:
                 raw_pan = pan_match.group(1)
 
-        # Validate PAN fields
         name = clean_name(raw_data.get("name"))
         father_name = clean_name(raw_data.get("father_name"))
 
@@ -259,14 +229,16 @@ def validate_and_clean_extraction(
         return FinalExtractionResult(
             document_type="pan",
             is_valid=True,
+            short_circuited=False,
             data=pan_model,
             warnings=warnings,
             ocr_confidence=ocr_confidence,
-            raw_ocr_text=raw_ocr_text
+            raw_ocr_text=raw_ocr_text,
+            quality_report=quality_report,
+            images=images or {}
         )
 
     elif doc_type == "driving_licence":
-        # Validate Driving Licence fields
         name = clean_name(raw_data.get("name"))
         
         dob, dob_warn = normalize_date(raw_data.get("date_of_birth"))
@@ -281,7 +253,13 @@ def validate_and_clean_extraction(
         if valid_warn:
             warnings.append(valid_warn)
 
-        dl_num, dl_warn = validate_driving_licence(raw_data.get("dl_number"))
+        raw_dl = raw_data.get("dl_number")
+        if not raw_dl and raw_ocr_text:
+            dl_match = re.search(r"\b([A-Z]{2}\d{2}\s*\d{4,14})\b", raw_ocr_text.upper())
+            if dl_match:
+                raw_dl = dl_match.group(1)
+
+        dl_num, dl_warn = validate_driving_licence(raw_dl)
         warnings.extend(dl_warn)
 
         address = raw_data.get("address")
@@ -301,10 +279,13 @@ def validate_and_clean_extraction(
         return FinalExtractionResult(
             document_type="driving_licence",
             is_valid=True,
+            short_circuited=False,
             data=dl_model,
             warnings=warnings,
             ocr_confidence=ocr_confidence,
-            raw_ocr_text=raw_ocr_text
+            raw_ocr_text=raw_ocr_text,
+            quality_report=quality_report,
+            images=images or {}
         )
 
     else:
@@ -316,8 +297,11 @@ def validate_and_clean_extraction(
         return FinalExtractionResult(
             document_type="unsupported",
             is_valid=False,
+            short_circuited=short_circuited,
             data=unsupported_model,
             warnings=["Document is not recognized as an Aadhaar, PAN, or Driving Licence."],
             ocr_confidence=ocr_confidence,
-            raw_ocr_text=raw_ocr_text
+            raw_ocr_text=raw_ocr_text,
+            quality_report=quality_report,
+            images=images or {}
         )

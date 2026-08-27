@@ -5,7 +5,7 @@ Also draws visual overlays on images.
 """
 
 import os
-from typing import List, Tuple, Optional
+from typing import List, Tuple
 import cv2
 import numpy as np
 import pytesseract
@@ -50,22 +50,13 @@ def check_tesseract_available() -> Tuple[bool, str]:
 
 def extract_ocr_data(
     image: np.ndarray,
-    min_confidence: float = 30.0,
+    min_confidence: float = 25.0,
     psm_mode: int = 11,
     lang: str = "eng"
 ) -> OCRResult:
     """
     Executes Tesseract OCR using image_to_data to retrieve words, coordinates,
     and confidence scores. Filters out low-confidence noise and tiny artifacts.
-
-    Args:
-        image: Preprocessed or original image (NumPy array).
-        min_confidence: Minimum confidence threshold (0-100) to include a word.
-        psm_mode: Tesseract Page Segmentation Mode (e.g. 11 for sparse text, 3 for auto, 6 for uniform block).
-        lang: Language for OCR (default: 'eng').
-
-    Returns:
-        OCRResult containing structured word tokens, raw text, and layout text.
     """
     is_available, msg = check_tesseract_available()
     if not is_available:
@@ -168,23 +159,9 @@ def extract_ocr_data(
 def draw_bounding_boxes(
     image: np.ndarray,
     ocr_result: OCRResult,
-    show_confidence: bool = True,
-    box_color: Tuple[int, int, int] = (0, 255, 0),
-    text_color: Tuple[int, int, int] = (255, 0, 0)
+    show_confidence: bool = True
 ) -> np.ndarray:
-    """
-    Draws bounding boxes and optional confidence tags around detected text on the image.
-    
-    Args:
-        image: Original RGB/BGR image.
-        ocr_result: OCRResult object containing bounding boxes.
-        show_confidence: Whether to draw small confidence tags above boxes.
-        box_color: BGR tuple for box borders (default: bright green).
-        text_color: BGR tuple for confidence label (default: red/blue).
-        
-    Returns:
-        Annotated image as NumPy array.
-    """
+    """Draws color-coded bounding boxes and confidence tags around detected text."""
     annotated = image.copy()
     if len(annotated.shape) == 2:
         annotated = cv2.cvtColor(annotated, cv2.COLOR_GRAY2BGR)
@@ -192,13 +169,13 @@ def draw_bounding_boxes(
     for word in ocr_result.words:
         x, y, w, h = word.x, word.y, word.width, word.height
         
-        # Color coding: Green if confidence > 70, Orange if 50-70, Yellow if < 50
+        # Color coding: Green if confidence > 75, Orange if 50-75, Yellow if < 50
         if word.confidence >= 75:
-            current_box_color = (0, 200, 0)  # Green
+            current_box_color = (0, 200, 0)
         elif word.confidence >= 50:
-            current_box_color = (0, 165, 255)  # Orange
+            current_box_color = (0, 165, 255)
         else:
-            current_box_color = (0, 255, 255)  # Yellow
+            current_box_color = (0, 255, 255)
 
         # Draw bounding rectangle
         cv2.rectangle(annotated, (x, y), (x + w, y + h), current_box_color, 2)
@@ -209,9 +186,7 @@ def draw_bounding_boxes(
             font_scale = 0.4
             thickness = 1
             (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)
-            # Tag background
             cv2.rectangle(annotated, (x, max(0, y - th - 4)), (x + tw + 2, max(th + 4, y)), current_box_color, -1)
-            # Tag text
             cv2.putText(
                 annotated,
                 label,

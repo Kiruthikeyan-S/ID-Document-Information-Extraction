@@ -1,6 +1,6 @@
 """
 llm_extractor.py - Groq LLM Document Extraction Engine.
-Interfaces with Groq's Llama models to analyze OCR layout text,
+Interfaces with Groq's models to analyze OCR layout text,
 classify the ID document type, and extract structured key-value pairs.
 """
 
@@ -11,6 +11,15 @@ from dotenv import load_dotenv
 from groq import Groq, GroqError
 
 load_dotenv()
+
+# Try injecting system truststore on Python 3.10+ (vital on Windows)
+try:
+    import truststore
+    truststore.inject_into_ssl()
+except Exception:
+    pass
+
+import httpx
 
 # System prompt for strict extraction
 SYSTEM_PROMPT = """You are an AI document information extraction engine.
@@ -83,31 +92,17 @@ If any other document, receipt, bill, or unrecognized text:
 """
 
 
-# Try injecting system truststore on Python 3.10+ (vital on Windows)
-try:
-    import truststore
-    truststore.inject_into_ssl()
-except Exception:
-    pass
-
-import httpx
-
-
 def get_groq_client(api_key: Optional[str] = None) -> Groq:
-    """
-    Initializes and returns a Groq client instance with robust SSL handling.
-    Falls back to GROQ_API_KEY environment variable.
-    """
+    """Initializes and returns a Groq client instance with robust SSL handling."""
     key = api_key or os.getenv("GROQ_API_KEY")
     if not key or key.strip() == "" or key == "your_groq_api_key_here":
         raise ValueError(
-            "GROQ_API_KEY is not configured. Please provide a valid Groq API key in the sidebar or in your .env file."
+            "GROQ_API_KEY is not configured. Please provide a valid Groq API key."
         )
     
     try:
         return Groq(api_key=key.strip())
     except Exception:
-        # Fallback with custom httpx client if default SSL verification has issues
         http_client = httpx.Client(verify=False)
         return Groq(api_key=key.strip(), http_client=http_client)
 
@@ -142,17 +137,13 @@ def extract_document_info(
     heuristic_hint: Optional[str] = None,
     temperature: float = 0.0
 ) -> Tuple[Dict[str, Any], Optional[str]]:
-    """
-    Sends the OCR text and layout metadata to Groq LLM for classification and extraction.
-    """
-    # Verify input text is not empty
+    """Sends the OCR text and layout metadata to Groq LLM for classification and extraction."""
     if not ocr_raw_text or not ocr_raw_text.strip():
         return {
             "document_type": "unsupported",
             "error": "No readable text detected in the image."
         }, "No text was detected by the OCR engine."
 
-    # Determine model name
     model = model_name or os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
     try:
@@ -171,7 +162,6 @@ def extract_document_info(
 Analyze the document text, determine if it is Aadhaar, PAN, or Driving Licence, and return the structured JSON strictly adhering to the schema.
 """
 
-        # Call Groq Chat Completions API with JSON mode enabled
         completion = client.chat.completions.create(
             model=model,
             messages=[
@@ -184,12 +174,10 @@ Analyze the document text, determine if it is Aadhaar, PAN, or Driving Licence, 
 
         response_text = completion.choices[0].message.content.strip()
 
-        # Parse JSON response
         try:
             extracted_json = json.loads(response_text)
             return extracted_json, None
         except json.JSONDecodeError as json_err:
-            # Fallback: attempt to find json substring
             start_idx = response_text.find("{")
             end_idx = response_text.rfind("}")
             if start_idx != -1 and end_idx != -1:

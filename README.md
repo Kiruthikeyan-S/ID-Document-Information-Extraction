@@ -1,185 +1,162 @@
-# AI-Powered ID Card Information Extraction System
+# AI-Powered ID Card Information Extraction System (MERN + FastAPI Architecture)
 
-An intelligent document information extraction pipeline built with **Python**, **OpenCV**, **Tesseract OCR**, and **Groq LLM API** (`Llama 3.3 / 3.1`). The system accurately processes Indian identity documents (**Aadhaar Card**, **PAN Card**, and **Driving Licence**), detects text bounding boxes with confidence scores, extracts key entity fields via LLM reasoning, validates data formats with Pydantic & Regex, and returns clean, structured JSON.
+A full-stack enterprise document extraction platform built with the **MERN Stack (MongoDB, Express.js, React, Node.js)** and a high-performance **Python FastAPI Microservice** leveraging **OpenCV, Tesseract OCR, and Groq LLM API** (`Llama 3.3 / GPT-OSS 120B`).
 
 ---
 
 ## 🚀 Architecture & Pipeline
 
 ```text
-Upload Image (JPG / JPEG / PNG)
-              │
-              ▼
-   Image Quality & Blur Check (Laplacian Variance)
-              │
-              ▼
-   OpenCV Preprocessing (Grayscale, CLAHE Contrast, Denoise)
-              │
-              ▼
-   Tesseract OCR (pytesseract.image_to_data)
-   - Words, Bounding Boxes (x, y, w, h), Confidence Scores
-              │
-              ▼
-   Spatial Layout Assembly (TEXT + POSITION Coordinates)
-              │
-              ▼
-   Groq LLM Engine (Llama 3.3 / 3.1)
-   - Classify Document Type (Aadhaar / PAN / Driving Licence / Unsupported)
-   - Structured JSON Field Extraction
-              │
-              ▼
-   Validation & Sanitization Layer
-   - PAN Regex Check (AAAAA9999A)
-   - Aadhaar 12-Digit Check & Privacy Masking (********1234)
-   - Date Normalization (YYYY-MM-DD)
-   - Driving Licence State/Format Validation
-              │
-              ▼
-   Streamlit Interactive Dashboard & JSON Download
+[ React Frontend (Vite) ]
+          │
+          │ Multipart File Upload
+          ▼
+[ Express.js API Gateway (:5000) ]
+          │
+          │ HTTP Stream Proxy
+          ▼
+[ Python FastAPI Microservice (:8000) ]
+          │
+          ├─► [ 1. Image Quality Check ] (Laplacian Variance Focus Metric)
+          │
+          ├─► [ 2. OpenCV Preprocessing ] (Grayscale, Glare Reducer, CLAHE Contrast)
+          │
+          ├─► [ 3. Tesseract OCR (PSM 11/3) ] (Bounding Boxes, Coordinates, Confidence)
+          │
+          └─► [ 4. PRE-LLM DECISION GATE ] ──(If non-ID document / receipt)──► [ ⚡ Short-Circuit Decline ]
+                       │ (If Aadhaar / PAN / DL match)
+                       ▼
+              [ 5. Groq LLM Inference ] (Structured JSON extraction)
+                       │
+                       ▼
+              [ 6. Pydantic Validation & Masking ] (Aadhaar: ********1234, PAN: AAAAA9999A)
+                       │
+                       ▼
+          [ Return JSON + Base64 Visual Pipeline Images ]
+                       │
+          ┌────────────┴────────────┐
+          ▼                         ▼
+  [ MongoDB Database ]     [ React Visual Dashboard ]
+  (Extraction History)     (Cards, Gallery, JSON Export)
 ```
 
 ---
 
-## 📋 Supported Document Types & Extracted Schemas
+## ⚡ Key Highlights & Innovations
 
-### 1. Aadhaar Card
-```json
-{
-  "document_type": "aadhaar",
-  "name": "Suresh Kumar",
-  "date_of_birth": "2002-08-15",
-  "year_of_birth": null,
-  "gender": "Male",
-  "aadhaar_number": "********9012",
-  "address": "22 Anna Nagar, Chennai, Tamil Nadu 600040"
-}
-```
-
-### 2. PAN Card
-```json
-{
-  "document_type": "pan",
-  "name": "Suresh Kumar",
-  "father_name": "Ramesh Kumar",
-  "date_of_birth": "2002-08-15",
-  "pan_number": "ABCDE1234F"
-}
-```
-
-### 3. Driving Licence
-```json
-{
-  "document_type": "driving_licence",
-  "name": "Suresh Kumar",
-  "date_of_birth": "2002-08-15",
-  "dl_number": "TN01 20220012345",
-  "address": "Chennai, Tamil Nadu",
-  "issue_date": "2022-06-10",
-  "valid_until": "2042-06-09"
-}
-```
-
-### 4. Unsupported Document
-```json
-{
-  "document_type": "unsupported",
-  "error": "Only Aadhaar Card, PAN Card and Driving Licence are supported."
-}
-```
-
----
-
-## 🛠️ Installation & Setup
-
-### 1. Prerequisites
-- **Python 3.9+** installed on your system.
-- **Tesseract OCR Engine**:
-  - **Windows**: Download and install the official installer from [UB-Mannheim/tesseract](https://github.com/UB-Mannheim/tesseract/wiki). Default install path is `C:\Program Files\Tesseract-OCR\tesseract.exe`.
-  - **Ubuntu / Debian**: `sudo apt update && sudo apt install -y tesseract-ocr`
-  - **macOS**: `brew install tesseract`
-
-### 2. Clone / Navigate to Project Directory
-```bash
-cd "f:\document  of csrd"
-```
-
-### 3. Create & Activate Virtual Environment
-```bash
-# Windows
-python -m venv venv
-venv\Scripts\activate
-
-# Linux / macOS
-python3 -m venv venv
-source venv/bin/activate
-```
-
-### 4. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
-
-### 5. Configure Environment Variables
-Copy `.env.example` to `.env`:
-```bash
-cp .env.example .env
-```
-Edit `.env` and provide your **Groq API Key**:
-```ini
-GROQ_API_KEY=gsk_your_actual_groq_api_key_here
-GROQ_MODEL=llama-3.3-70b-versatile
-# Optional on Windows if Tesseract is not in your system PATH:
-TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
-```
-
-*(You can also provide the Groq API key directly in the Streamlit sidebar during runtime).*
-
----
-
-## ▶️ Running the Application
-
-Launch the Streamlit web dashboard:
-```bash
-streamlit run app.py
-```
-
-Open your browser at `http://localhost:8501`.
+1. **Pre-LLM Decision Gate (Cost & Latency Optimization)**:
+   - Evaluates OCR text signatures *before* invoking Groq LLM.
+   - Non-ID documents (e.g. receipts, invoices, random photos) are rejected cheaply by the local decision gate, **saving 100% of LLM API costs and execution latency**.
+2. **Modular Microservice Architecture**:
+   - Keeps Python's mature vision and OCR ecosystem (OpenCV, Tesseract, Pydantic) intact inside an isolated FastAPI service.
+   - Express.js manages client routing, multipart streaming, and MongoDB history persistence.
+3. **Interactive React Dashboard**:
+   - Side-by-side Visual Pipeline gallery (Original, Preprocessed, Bounding Box overlay).
+   - Extracted field cards with masked Aadhaar compliance.
+   - MongoDB Extraction History drawer with search and one-click recall.
+4. **Privacy-by-Design**:
+   - Images are processed in-memory. Raw document images are never persisted to MongoDB.
 
 ---
 
 ## 📂 Project Structure
 
 ```text
-id-document-extractor/
+ID-Document-Information-Extraction/
 │
-├── app.py                     # Streamlit frontend & interactive dashboard
-├── preprocessing.py           # OpenCV image enhancement, CLAHE, denoising & blur check
-├── ocr_engine.py              # Tesseract image_to_data bounding boxes & spatial formatting
-├── llm_extractor.py           # Groq LLM API integration with strict system prompt
-├── document_classifier.py     # Heuristic and regex document classifier
-├── validation.py              # Post-extraction validation, PAN/Aadhaar checks & date normalization
-├── schemas.py                 # Pydantic data models for structured outputs
-├── utils.py                   # Image conversions, temporary file handling, safe logging
-├── requirements.txt           # Python package dependencies
-├── .env.example               # Configuration template
-├── .gitignore                 # Git ignore rules for privacy & temporary files
-└── README.md                  # Complete documentation
+├── python_service/             # FastAPI Microservice
+│   ├── main.py                 # FastAPI endpoints (POST /extract, GET /health, GET /models)
+│   ├── preprocessing.py        # OpenCV enhancement & glare reduction
+│   ├── ocr_engine.py           # Tesseract OCR & bounding boxes
+│   ├── llm_extractor.py        # Groq API integration (Llama / GPT-OSS 120B)
+│   ├── document_classifier.py  # Heuristic & Regex decision gate
+│   ├── validation.py           # Pydantic & Regex post-validation
+│   ├── schemas.py              # Data models
+│   ├── utils.py                # Image & Base64 encoders
+│   ├── requirements.txt        # Python dependencies
+│   ├── .env                    # Python service secrets
+│   └── Dockerfile
+│
+├── backend/                    # Express.js API Gateway
+│   ├── src/
+│   │   ├── config/db.js        # MongoDB Mongoose connection
+│   │   ├── models/Document.js  # Extraction History Schema
+│   │   ├── controllers/        # Proxy & CRUD controllers
+│   │   ├── routes/             # /api/documents routes
+│   │   └── server.js           # Server entrypoint
+│   ├── package.json
+│   ├── .env
+│   └── Dockerfile
+│
+├── client/                     # React Frontend (Vite + Tailwind CSS)
+│   ├── src/
+│   │   ├── components/         # UploadZone, ResultsView, VisualPipeline, HistoryDrawer, etc.
+│   │   ├── services/api.js     # Axios API service
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   ├── package.json
+│   ├── vite.config.js
+│   └── Dockerfile
+│
+├── docker-compose.yml          # 4-Service container orchestration
+├── run-dev.bat                 # One-click Windows dev runner
+└── README.md
 ```
 
 ---
 
-## 🔒 Privacy & Security
+## 🛠️ Quick Start (Local Development)
 
-- **In-Memory Processing**: Uploaded documents are processed entirely in memory and not permanently saved to disk.
-- **Aadhaar Masking**: Aadhaar numbers are masked by default (`********1234`) in outputs to safeguard cardholder PII.
-- **Safe Logging**: Logs are filtered to avoid logging unmasked sensitive identity numbers.
-- **Strict Anti-Hallucination**: The Groq LLM prompt explicitly prohibits guessing missing data fields.
+### 1. Prerequisites
+- **Node.js 18+** & **npm**
+- **Python 3.9+** & **Tesseract OCR** (Default path: `C:\Program Files\Tesseract-OCR\tesseract.exe`)
+- **MongoDB** (Optional for local development; system runs in standalone mode if MongoDB is offline)
 
----
-
-## 🧪 Testing Modules
-
-You can run automated tests across the validation and schema pipelines:
+### 2. Install Dependencies
 ```bash
-python test_pipeline.py
+# Python Service
+cd python_service
+pip install -r requirements.txt
+
+# Express Backend
+cd ../backend
+npm install
+
+# React Client
+cd ../client
+npm install
 ```
+
+### 3. Run all services with 1-Click
+On Windows:
+```powershell
+.\run-dev.bat
+```
+
+Or run each service manually in separate terminals:
+```bash
+# Terminal 1: Python FastAPI
+cd python_service && python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+# Terminal 2: Express Backend
+cd backend && npm start
+
+# Terminal 3: React Frontend
+cd client && npm run dev
+```
+
+Open your browser at **`http://localhost:3000`**.
+
+---
+
+## 🐳 Running with Docker Compose
+
+Run the entire 4-container stack (MongoDB + Python FastAPI + Express + React):
+```bash
+docker-compose up --build
+```
+
+Access:
+- **React Frontend**: `http://localhost:3000`
+- **Express Backend API**: `http://localhost:5000`
+- **Python FastAPI Docs**: `http://localhost:8000/docs`

@@ -3,7 +3,7 @@ schemas.py - Pydantic data schemas for ID Document Extraction Pipeline.
 Defines data structures for OCR bounding boxes, document types, and extracted fields.
 """
 
-from typing import List, Optional, Union, Literal
+from typing import List, Optional, Union, Literal, Dict, Any
 from pydantic import BaseModel, Field
 
 
@@ -74,7 +74,10 @@ class FinalExtractionResult(BaseModel):
     """Final unified payload returned to the UI/API."""
     document_type: str
     is_valid: bool = Field(True, description="True if document is supported and validly parsed")
+    short_circuited: bool = Field(False, description="True if decision gate rejected before LLM call")
     data: ExtractedData
     warnings: List[str] = Field(default_factory=list, description="Validation warnings or data quality alerts")
     ocr_confidence: float = Field(0.0, description="Average OCR confidence score")
     raw_ocr_text: Optional[str] = Field(None, description="Raw OCR text extracted from image")
+    quality_report: Optional[Dict[str, Any]] = Field(None, description="Image sharpness and resolution metrics")
+    images: Optional[Dict[str, str]] = Field(default_factory=dict, description="Base64 encoded visual pipeline images")

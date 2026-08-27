@@ -8,7 +8,6 @@ import re
 from typing import Tuple, Dict
 
 
-# Keywords and RegEx patterns for heuristic identification
 PATTERNS = {
     "aadhaar": [
         r"unique identification authority of india",
@@ -51,11 +50,8 @@ def classify_document_heuristics(ocr_text: str) -> Tuple[str, float, Dict[str, i
     """
     Classifies document type based on keyword frequency and regex matching.
     
-    Args:
-        ocr_text: Raw or layout text extracted by OCR.
-        
     Returns:
-        Tuple containing (best_match_type, confidence_score_0_to_1, score_breakdown)
+        Tuple of (best_match_type, confidence_score, score_breakdown)
     """
     text_lower = ocr_text.lower()
     scores = {"aadhaar": 0, "pan": 0, "driving_licence": 0}
@@ -71,7 +67,7 @@ def classify_document_heuristics(ocr_text: str) -> Tuple[str, float, Dict[str, i
         scores["pan"] += 5
     if re.search(r"\b\d{4}\s\d{4}\s\d{4}\b", text_lower):
         scores["aadhaar"] += 5
-    if re.search(r"driving licen[cs]e|dl\s*no", text_lower):
+    if re.search(r"driving licen[cs]e|dl\s*no|indian union driving", text_lower):
         scores["driving_licence"] += 5
 
     total_score = sum(scores.values())
