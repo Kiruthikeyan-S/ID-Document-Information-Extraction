@@ -72,6 +72,7 @@ ExtractedData = Union[AadhaarData, PANData, DrivingLicenceData, UnsupportedDocum
 
 class FinalExtractionResult(BaseModel):
     """Final unified payload returned to the UI/API."""
+    id: Optional[str] = Field(None, description="Unique stored document ID")
     document_type: str
     is_valid: bool = Field(True, description="True if document is supported and validly parsed")
     short_circuited: bool = Field(False, description="True if decision gate rejected before LLM call")

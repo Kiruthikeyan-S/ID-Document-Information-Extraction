@@ -8,7 +8,7 @@ export const api = axios.create({
 });
 
 /**
- * Uploads ID document image to backend with configuration parameters.
+ * Uploads ID document image directly to Python FastAPI backend.
  */
 export const extractDocumentApi = async (file, settings = {}) => {
   const formData = new FormData();
@@ -20,7 +20,7 @@ export const extractDocumentApi = async (file, settings = {}) => {
     }
   });
 
-  const response = await api.post('/documents/extract', formData, {
+  const response = await api.post('/extract', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },
@@ -30,12 +30,11 @@ export const extractDocumentApi = async (file, settings = {}) => {
 };
 
 /**
- * Retrieves extraction history list from MongoDB.
+ * Retrieves extraction history list.
  */
-export const getHistoryApi = async (page = 1, limit = 20, type = '') => {
-  const params = { page, limit };
-  if (type) params.type = type;
-  const response = await api.get('/documents', { params });
+export const getHistoryApi = async (params = {}) => {
+  const queryParams = typeof params === 'object' ? params : { page: 1, limit: 50 };
+  const response = await api.get('/history', { params: queryParams });
   return response.data;
 };
 
@@ -43,7 +42,7 @@ export const getHistoryApi = async (page = 1, limit = 20, type = '') => {
  * Retrieves single extraction record by ID.
  */
 export const getDocumentByIdApi = async (id) => {
-  const response = await api.get(`/documents/${id}`);
+  const response = await api.get(`/history/${id}`);
   return response.data;
 };
 
@@ -51,17 +50,17 @@ export const getDocumentByIdApi = async (id) => {
  * Deletes extraction record by ID.
  */
 export const deleteDocumentApi = async (id) => {
-  const response = await api.delete(`/documents/${id}`);
+  const response = await api.delete(`/history/${id}`);
   return response.data;
 };
 
 export const deleteHistoryApi = deleteDocumentApi;
 
 /**
- * Fetches available Groq models from backend.
+ * Fetches available Groq models from Python FastAPI backend.
  */
 export const getModelsApi = async () => {
-  const response = await api.get('/documents/models');
+  const response = await api.get('/models');
   return response.data;
 };
 

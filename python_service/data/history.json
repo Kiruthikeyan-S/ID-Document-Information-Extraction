@@ -1,0 +1,30 @@
+[
+  {
+    "_id": "doc_1787825603_52884b",
+    "documentType": "pan",
+    "isValid": true,
+    "shortCircuited": false,
+    "data": {
+      "document_type": "pan",
+      "name": null,
+      "father_name": null,
+      "date_of_birth": null,
+      "pan_number": null
+    },
+    "warnings": [
+      "PAN number is missing."
+    ],
+    "ocrConfidence": 61.76,
+    "qualityReport": {
+      "blur_score": 2449.09,
+      "is_blurry": false,
+      "width": 1024,
+      "height": 241,
+      "is_too_small": false
+    },
+    "rawOcrText": "ART GAT\nip Sree\nINCOME TAX DEPARTMENT\nrere Qe erg\nz\nGOVT. OF INDIA\nGOVT. OF INDIA\nTAX DEPARTMENT\nware Ger on ant\nGOVT. OF INDIA\nNumber Card\nNumber Cord\naa\neT Lf\nVn\nVm\nfer Peters\ner\na\non\nat\nAas",
+    "originalFileName": "pan_card.png",
+    "createdAt": "2026-08-27T10:13:23.475216Z",
+    "updatedAt": "2026-08-27T10:13:23.475225Z"
+  }
+]

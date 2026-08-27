@@ -1,24 +1,12 @@
 version: '3.8'
 
 services:
-  # 1. MongoDB Database for Extraction History
-  mongo:
-    image: mongo:7.0
-    container_name: id-extractor-mongo
-    restart: unless-stopped
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo-data:/data/db
-    networks:
-      - id-extractor-net
-
-  # 2. Python FastAPI Microservice (OpenCV, Tesseract OCR, Decision Gate, Groq)
+  # 1. Python FastAPI Backend (OpenCV, Tesseract OCR, Decision Gate, Groq, History Store)
   python-service:
     build:
       context: ./python_service
       dockerfile: Dockerfile
-    container_name: id-extractor-python
+    container_name: id-extractor-backend
     restart: unless-stopped
     ports:
       - "8000:8000"
@@ -28,26 +16,7 @@ services:
     networks:
       - id-extractor-net
 
-  # 3. Express.js API Gateway (Multer, Mongoose persistence, Proxy)
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: id-extractor-backend
-    restart: unless-stopped
-    ports:
-      - "5000:5000"
-    environment:
-      - PORT=5000
-      - MONGODB_URI=mongodb://mongo:27017/id_document_extractor
-      - PYTHON_SERVICE_URL=http://python-service:8000
-    depends_on:
-      - mongo
-      - python-service
-    networks:
-      - id-extractor-net
-
-  # 4. React Frontend (Vite + Nginx)
+  # 2. React Frontend (Vite + Nginx)
   client:
     build:
       context: ./client
@@ -55,14 +24,11 @@ services:
     container_name: id-extractor-client
     restart: unless-stopped
     ports:
-      - "3000:80"
+      - "5173:80"
     depends_on:
-      - backend
+      - python-service
     networks:
       - id-extractor-net
-
-volumes:
-  mongo-data:
 
 networks:
   id-extractor-net:

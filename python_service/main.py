@@ -22,14 +22,15 @@ from document_classifier import classify_document_heuristics
 from llm_extractor import extract_document_info, get_available_models
 from validation import validate_and_clean_extraction
 from utils import pil_to_cv2, cv2_to_base64, logger
+from storage import save_extraction, get_history, get_extraction_by_id, delete_extraction_by_id
 
 app = FastAPI(
     title="ID Document Information Extraction API",
     version="2.0.0",
-    description="Microservice providing OpenCV preprocessing, Tesseract OCR, Decision Gate validation, and Groq LLM extraction."
+    description="Direct Python FastAPI Backend for OpenCV preprocessing, Tesseract OCR, Decision Gate validation, Groq LLM extraction, and History persistence."
 )
 
-# Enable CORS for Express and React frontend
+# Enable CORS for React frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -45,7 +46,7 @@ def health_check():
     tess_available, tess_msg = check_tesseract_available()
     return {
         "status": "healthy",
-        "service": "python_extractor",
+        "service": "python_fastapi_backend",
         "tesseract_available": tess_available,
         "tesseract_message": tess_msg
     }
@@ -59,6 +60,30 @@ def list_models(api_key: Optional[str] = None):
         return {"status": "success", "models": models}
     except Exception as e:
         return {"status": "error", "message": str(e), "models": ["openai/gpt-oss-120b", "openai/gpt-oss-20b"]}
+
+
+@app.get("/history")
+def list_history(limit: int = 50, page: int = 1, type: Optional[str] = None):
+    """Retrieves stored extraction history records."""
+    return get_history(limit=limit, page=page, doc_type=type)
+
+
+@app.get("/history/{doc_id}")
+def get_single_history(doc_id: str):
+    """Retrieves single extraction record by ID."""
+    doc = get_extraction_by_id(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return doc
+
+
+@app.delete("/history/{doc_id}")
+def delete_single_history(doc_id: str):
+    """Deletes extraction record by ID."""
+    success = delete_extraction_by_id(doc_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return {"message": "Document deleted successfully", "id": doc_id}
 
 
 @app.post("/extract", response_model=FinalExtractionResult)
@@ -195,6 +220,10 @@ async def extract_document(
         images=pipeline_images,
         short_circuited=False
     )
+
+    # 8. Save extraction to persistent history store
+    doc_id = save_extraction(final_result.model_dump() if hasattr(final_result, 'model_dump') else final_result.dict(), original_filename=file.filename or "document.jpg")
+    final_result.id = doc_id
 
     return final_result
 
