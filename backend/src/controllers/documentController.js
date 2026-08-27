@@ -1,13 +1,18 @@
 const axios = require('axios');
 const FormData = require('form-data');
-const Document = require('../models/Document');
+const {
+  saveExtraction,
+  getExtractions,
+  getExtractionById,
+  deleteExtraction,
+} = require('../services/storageService');
 const { getIsConnected } = require('../config/db');
 
 const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || 'http://localhost:8000';
 
 /**
  * Extracts information from an uploaded ID document image.
- * Proxies upload to Python FastAPI service, evaluates result, and saves to MongoDB.
+ * Proxies upload to Python FastAPI service, evaluates result, and saves to database.
  */
 exports.extractDocument = async (req, res) => {
   try {
@@ -57,30 +62,19 @@ exports.extractDocument = async (req, res) => {
     });
 
     const result = pythonResponse.data;
-    let savedDocId = null;
 
-    // Persist to MongoDB if connected
-    if (getIsConnected()) {
-      try {
-        const newDoc = new Document({
-          documentType: result.document_type || 'unsupported',
-          isValid: result.is_valid !== undefined ? result.is_valid : true,
-          shortCircuited: result.short_circuited || false,
-          data: result.data || {},
-          warnings: result.warnings || [],
-          ocrConfidence: result.ocr_confidence || 0.0,
-          qualityReport: result.quality_report || {},
-          rawOcrText: result.raw_ocr_text || '',
-          originalFileName: req.file.originalname,
-        });
-
-        const savedDoc = await newDoc.save();
-        savedDocId = savedDoc._id;
-        console.log(`[MongoDB] Extraction record saved successfully with ID: ${savedDocId}`);
-      } catch (dbErr) {
-        console.warn(`[MongoDB] Failed to persist extraction history: ${dbErr.message}`);
-      }
-    }
+    // Persist extraction record
+    const savedDocId = await saveExtraction({
+      documentType: result.document_type || 'unsupported',
+      isValid: result.is_valid !== undefined ? result.is_valid : true,
+      shortCircuited: result.short_circuited || false,
+      data: result.data || {},
+      warnings: result.warnings || [],
+      ocrConfidence: result.ocr_confidence || 0.0,
+      qualityReport: result.quality_report || {},
+      rawOcrText: result.raw_ocr_text || '',
+      originalFileName: req.file.originalname,
+    });
 
     return res.status(200).json({
       ...result,
@@ -95,33 +89,18 @@ exports.extractDocument = async (req, res) => {
 };
 
 /**
- * Retrieves past document extractions history from MongoDB.
+ * Retrieves past document extractions history.
  */
 exports.getDocuments = async (req, res) => {
   try {
-    if (!getIsConnected()) {
-      return res.status(200).json({
-        status: 'standalone',
-        message: 'MongoDB is not currently connected.',
-        documents: [],
-      });
-    }
-
-    const { limit = 20, page = 1, type } = req.query;
+    const { limit = 50, page = 1, type } = req.query;
     const query = type ? { documentType: type } : {};
 
-    const documents = await Document.find(query)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
-
-    const total = await Document.countDocuments(query);
+    const historyData = await getExtractions(query, page, limit);
 
     return res.status(200).json({
-      documents,
-      total,
-      page: parseInt(page),
-      pages: Math.ceil(total / limit),
+      ...historyData,
+      database_connected: getIsConnected(),
     });
   } catch (error) {
     console.error('[Express] Get Documents Error:', error.message);
@@ -134,15 +113,10 @@ exports.getDocuments = async (req, res) => {
  */
 exports.getDocumentById = async (req, res) => {
   try {
-    if (!getIsConnected()) {
-      return res.status(503).json({ error: 'Database not connected.' });
-    }
-
-    const doc = await Document.findById(req.params.id);
+    const doc = await getExtractionById(req.params.id);
     if (!doc) {
       return res.status(404).json({ error: 'Document not found.' });
     }
-
     return res.status(200).json(doc);
   } catch (error) {
     return res.status(500).json({ error: error.message });
@@ -154,15 +128,10 @@ exports.getDocumentById = async (req, res) => {
  */
 exports.deleteDocument = async (req, res) => {
   try {
-    if (!getIsConnected()) {
-      return res.status(503).json({ error: 'Database not connected.' });
-    }
-
-    const doc = await Document.findByIdAndDelete(req.params.id);
-    if (!doc) {
+    const success = await deleteExtraction(req.params.id);
+    if (!success) {
       return res.status(404).json({ error: 'Document not found.' });
     }
-
     return res.status(200).json({ message: 'Document deleted successfully.', id: req.params.id });
   } catch (error) {
     return res.status(500).json({ error: error.message });
