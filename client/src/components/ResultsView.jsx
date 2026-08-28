@@ -1,7 +1,22 @@
 import React from 'react';
-import { AlertTriangle, XCircle, ShieldCheck, User, Calendar, MapPin, Hash, FileText, Clock, Image as ImageIcon } from 'lucide-react';
+import { 
+  AlertTriangle, 
+  XCircle, 
+  ShieldCheck, 
+  User, 
+  Calendar, 
+  MapPin, 
+  Hash, 
+  FileText, 
+  Clock, 
+  Image as ImageIcon,
+  RotateCcw,
+  ArrowRight,
+  Truck,
+  Car
+} from 'lucide-react';
 
-export default function ResultsView({ result }) {
+export default function ResultsView({ result, onUploadAnother }) {
   if (!result) return null;
 
   const { document_type, is_valid, short_circuited, data, warnings, images } = result;
@@ -22,7 +37,14 @@ export default function ResultsView({ result }) {
         return (
           <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold">
             <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-            <span>AADHAAR VERIFIED</span>
+            <span>AADHAAR FRONT VERIFIED</span>
+          </div>
+        );
+      case 'aadhaar_back':
+        return (
+          <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold">
+            <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
+            <span>AADHAAR BACK (ADDRESS) VERIFIED</span>
           </div>
         );
       case 'pan':
@@ -32,11 +54,25 @@ export default function ResultsView({ result }) {
             <span>PAN CARD VERIFIED</span>
           </div>
         );
+      case 'pan_back':
+        return (
+          <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold">
+            <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
+            <span>PAN BACK SIDE DETECTED</span>
+          </div>
+        );
       case 'driving_licence':
         return (
           <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
             <span>DRIVING LICENCE VERIFIED</span>
+          </div>
+        );
+      case 'driving_licence_back':
+        return (
+          <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+            <span>DRIVING LICENCE (BACK) VERIFIED</span>
           </div>
         );
       default:
@@ -62,18 +98,71 @@ export default function ResultsView({ result }) {
             <h2 className="text-xl font-bold text-slate-900 tracking-tight">
               {document_type === 'unsupported' 
                 ? 'Verification Declined' 
-                : `${document_type.replace('_', ' ').toUpperCase()} VERIFICATION DETAILS`}
+                : `${document_type.replace('_', ' ').toUpperCase()} DETAILS`}
             </h2>
           </div>
           
           <div className="flex items-center space-x-1.5 px-3 py-1 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold self-start sm:self-auto">
             <Clock className="w-3.5 h-3.5" />
-            <span>Stored in Utility Bot (Auto-expires in 30 Days)</span>
+            <span>Utility Bot 30-Day Storage</span>
           </div>
         </div>
 
+        {/* SPECIAL CASE: PAN BACK SIDE GUIDANCE PROMPT */}
+        {document_type === 'pan_back' && (
+          <div className="mt-6 p-6 bg-amber-50/80 border border-amber-200 rounded-2xl">
+            <div className="flex items-start space-x-4">
+              <div className="p-3 bg-amber-100 text-amber-800 rounded-xl flex-shrink-0">
+                <RotateCcw className="w-6 h-6" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-bold text-amber-900 mb-1">
+                  PAN Card Back Side Detected
+                </h3>
+                <p className="text-xs text-amber-800 leading-relaxed max-w-2xl">
+                  The back side of an Indian PAN Card contains only barcodes and instructions. It does not have your Name, Father's Name, DOB, or PAN Number.
+                </p>
+                <div className="mt-4 p-3 bg-white/90 border border-amber-200 rounded-xl text-xs text-slate-700 flex items-center justify-between">
+                  <span>👉 <strong>Action Required:</strong> Please flip the card and upload the <strong>FRONT SIDE</strong> to complete verification.</span>
+                  {onUploadAnother && (
+                    <button
+                      onClick={onUploadAnother}
+                      className="ml-3 px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-sm transition flex items-center space-x-1.5 flex-shrink-0"
+                    >
+                      <span>Upload Front Side</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* BACK-SIDE PROMPT FOR AADHAAR & DRIVING LICENCE */}
+        {(document_type === 'aadhaar_back' || document_type === 'driving_licence_back') && (
+          <div className="mt-4 p-4 bg-sky-50 border border-sky-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-sky-900">
+            <div className="flex items-start space-x-2.5">
+              <ShieldCheck className="w-4 h-4 text-sky-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <strong className="block text-sky-950 font-bold">Back Side Verified (Address & Details Extracted)!</strong>
+                <span>To link with your full name and cardholder photo, please also upload the <strong>FRONT SIDE</strong>.</span>
+              </div>
+            </div>
+            {onUploadAnother && (
+              <button
+                onClick={onUploadAnother}
+                className="px-3.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-sm transition flex items-center space-x-1 self-start sm:self-auto flex-shrink-0"
+              >
+                <span>Upload Front Side</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Validation Warnings Alert */}
-        {warnings && warnings.length > 0 && (
+        {warnings && warnings.length > 0 && document_type !== 'pan_back' && (
           <div className="mt-4 p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-start space-x-3 text-xs text-amber-800">
             <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
             <div>
@@ -96,7 +185,7 @@ export default function ResultsView({ result }) {
               {data?.error || 'Only Indian Aadhaar Card, PAN Card, and Driving Licence are supported by Utility Bot.'}
             </p>
           </div>
-        ) : (
+        ) : document_type !== 'pan_back' && (
           <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             {/* Left Column: Attached Document Photo */}
@@ -111,102 +200,220 @@ export default function ResultsView({ result }) {
                   alt="Verified Document Scan"
                   className="max-h-48 w-full object-contain rounded-lg border border-slate-200 shadow-sm bg-white p-1"
                 />
-                <span className="text-[11px] text-slate-400 mt-2">Saved with 30-day retention</span>
+                <span className="text-[11px] text-slate-400 mt-2">Stored with 30-day retention</span>
               </div>
             )}
 
             {/* Right Columns: Extracted Data Cards */}
             <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${images?.original ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
               
-              {/* Cardholder Name */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
-                <div className="p-2 rounded-lg bg-sky-100 text-sky-700 flex-shrink-0">
-                  <User className="w-4 h-4" />
-                </div>
-                <div className="flex-1 overflow-hidden">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Applicant Name</span>
-                  <span className="text-sm font-bold text-slate-900 block truncate">{data?.name || 'Not Detected'}</span>
-                </div>
-              </div>
-
-              {/* Document Specific Number (Aadhaar / PAN / DL) */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
-                <div className="p-2 rounded-lg bg-indigo-100 text-indigo-700 flex-shrink-0">
-                  <Hash className="w-4 h-4" />
-                </div>
-                <div className="flex-1 overflow-hidden">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                    {document_type === 'aadhaar' ? 'Aadhaar Number (Masked)' : document_type === 'pan' ? 'PAN Number' : 'DL Number'}
-                  </span>
-                  <span className="text-sm font-bold text-sky-700 font-mono block">
-                    {data?.aadhaar_number || data?.pan_number || data?.dl_number || 'Not Detected'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Date of Birth */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
-                <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700 flex-shrink-0">
-                  <Calendar className="w-4 h-4" />
-                </div>
-                <div className="flex-1 overflow-hidden">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Date of Birth</span>
-                  <span className="text-sm font-bold text-slate-900 block">
-                    {data?.date_of_birth || data?.year_of_birth || 'Not Detected'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Father's Name (PAN) or Gender (Aadhaar) or Validity (DL) */}
-              {document_type === 'pan' && (
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
-                  <div className="p-2 rounded-lg bg-amber-100 text-amber-800 flex-shrink-0">
-                    <User className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 overflow-hidden">
-                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Father's Name</span>
-                    <span className="text-sm font-bold text-slate-900 block truncate">{data?.father_name || 'Not Detected'}</span>
-                  </div>
-                </div>
-              )}
-
+              {/* 1. AADHAAR FRONT FIELDS */}
               {document_type === 'aadhaar' && (
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
-                  <div className="p-2 rounded-lg bg-purple-100 text-purple-700 flex-shrink-0">
-                    <FileText className="w-4 h-4" />
+                <>
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
+                    <div className="p-2 rounded-lg bg-sky-100 text-sky-700 flex-shrink-0">
+                      <User className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Applicant Name</span>
+                      <span className="text-sm font-bold text-slate-900 block truncate">{data?.name || 'Not Detected'}</span>
+                    </div>
                   </div>
-                  <div className="flex-1 overflow-hidden">
-                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Gender</span>
-                    <span className="text-sm font-bold text-slate-900 block">{data?.gender || 'Not Detected'}</span>
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
+                    <div className="p-2 rounded-lg bg-indigo-100 text-indigo-700 flex-shrink-0">
+                      <Hash className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Aadhaar Number (Masked)</span>
+                      <span className="text-sm font-bold text-sky-700 font-mono block">{data?.aadhaar_number || 'Not Detected'}</span>
+                    </div>
                   </div>
-                </div>
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
+                    <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700 flex-shrink-0">
+                      <Calendar className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Date of Birth</span>
+                      <span className="text-sm font-bold text-slate-900 block">{data?.date_of_birth || data?.year_of_birth || 'Not Detected'}</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
+                    <div className="p-2 rounded-lg bg-purple-100 text-purple-700 flex-shrink-0">
+                      <FileText className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Gender</span>
+                      <span className="text-sm font-bold text-slate-900 block">{data?.gender || 'Not Detected'}</span>
+                    </div>
+                  </div>
+                </>
               )}
 
+              {/* 2. AADHAAR BACK FIELDS (Address & Care of) */}
+              {document_type === 'aadhaar_back' && (
+                <>
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
+                    <div className="p-2 rounded-lg bg-purple-100 text-purple-700 flex-shrink-0">
+                      <User className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Guardian / Spouse (C/O)</span>
+                      <span className="text-sm font-bold text-slate-900 block truncate">{data?.care_of || 'Not Detected'}</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
+                    <div className="p-2 rounded-lg bg-indigo-100 text-indigo-700 flex-shrink-0">
+                      <Hash className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Postal Pincode</span>
+                      <span className="text-sm font-bold text-sky-700 font-mono block">{data?.pincode || 'Not Detected'}</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:col-span-2 flex items-start space-x-3 shadow-sm">
+                    <div className="p-2 rounded-lg bg-sky-100 text-sky-700 flex-shrink-0">
+                      <MapPin className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Full Residential Address</span>
+                      <p className="text-xs text-slate-800 mt-1 leading-relaxed font-medium">
+                        {data?.address || 'Address text could not be isolated from scan.'}
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* 3. PAN FRONT FIELDS */}
+              {document_type === 'pan' && (
+                <>
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
+                    <div className="p-2 rounded-lg bg-sky-100 text-sky-700 flex-shrink-0">
+                      <User className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Cardholder Name</span>
+                      <span className="text-sm font-bold text-slate-900 block truncate">{data?.name || 'Not Detected'}</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
+                    <div className="p-2 rounded-lg bg-indigo-100 text-indigo-700 flex-shrink-0">
+                      <Hash className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">PAN Number</span>
+                      <span className="text-sm font-bold text-sky-700 font-mono block">{data?.pan_number || 'Not Detected'}</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
+                    <div className="p-2 rounded-lg bg-amber-100 text-amber-800 flex-shrink-0">
+                      <User className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Father's Name</span>
+                      <span className="text-sm font-bold text-slate-900 block truncate">{data?.father_name || 'Not Detected'}</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
+                    <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700 flex-shrink-0">
+                      <Calendar className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Date of Birth</span>
+                      <span className="text-sm font-bold text-slate-900 block">{data?.date_of_birth || 'Not Detected'}</span>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* 4. DRIVING LICENCE FRONT */}
               {document_type === 'driving_licence' && (
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
-                  <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700 flex-shrink-0">
-                    <Calendar className="w-4 h-4" />
+                <>
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
+                    <div className="p-2 rounded-lg bg-sky-100 text-sky-700 flex-shrink-0">
+                      <User className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Licence Holder</span>
+                      <span className="text-sm font-bold text-slate-900 block truncate">{data?.name || 'Not Detected'}</span>
+                    </div>
                   </div>
-                  <div className="flex-1 overflow-hidden">
-                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Validity Date</span>
-                    <span className="text-sm font-bold text-slate-900 block">{data?.valid_until || 'Not Detected'}</span>
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
+                    <div className="p-2 rounded-lg bg-indigo-100 text-indigo-700 flex-shrink-0">
+                      <Hash className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">DL Number</span>
+                      <span className="text-sm font-bold text-sky-700 font-mono block">{data?.dl_number || 'Not Detected'}</span>
+                    </div>
                   </div>
-                </div>
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
+                    <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700 flex-shrink-0">
+                      <Calendar className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Date of Birth</span>
+                      <span className="text-sm font-bold text-slate-900 block">{data?.date_of_birth || 'Not Detected'}</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
+                    <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700 flex-shrink-0">
+                      <Calendar className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Validity Date</span>
+                      <span className="text-sm font-bold text-slate-900 block">{data?.valid_until || 'Not Detected'}</span>
+                    </div>
+                  </div>
+                </>
               )}
 
-              {/* Address (Aadhaar or Driving Licence) */}
-              {(document_type === 'aadhaar' || document_type === 'driving_licence') && (
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:col-span-2 flex items-start space-x-3 shadow-sm">
-                  <div className="p-2 rounded-lg bg-sky-100 text-sky-700 flex-shrink-0">
-                    <MapPin className="w-4 h-4" />
+              {/* 5. DRIVING LICENCE BACK */}
+              {document_type === 'driving_licence_back' && (
+                <>
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:col-span-2 flex items-start space-x-3 shadow-sm">
+                    <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700 flex-shrink-0">
+                      <Car className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Authorised Vehicle Categories</span>
+                      <div className="flex flex-wrap gap-2 mt-1.5">
+                        {data?.vehicle_classes && data.vehicle_classes.length > 0 ? (
+                          data.vehicle_classes.map((vc, i) => (
+                            <span key={i} className="px-2.5 py-1 rounded-md bg-emerald-100 text-emerald-800 font-bold text-xs">
+                              {vc}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-slate-500">LMV / MCWG (Detected on back)</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Residential Address</span>
-                    <p className="text-xs text-slate-800 mt-0.5 leading-relaxed font-medium">
-                      {data?.address || 'Not Present on Front Side / Unreadable'}
-                    </p>
-                  </div>
-                </div>
+
+                  {data?.address && (
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:col-span-2 flex items-start space-x-3 shadow-sm">
+                      <div className="p-2 rounded-lg bg-sky-100 text-sky-700 flex-shrink-0">
+                        <MapPin className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Permanent Address</span>
+                        <p className="text-xs text-slate-800 mt-1 leading-relaxed font-medium">{data.address}</p>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
             </div>

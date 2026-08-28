@@ -193,7 +193,10 @@ export default function App() {
 
             {/* Tab 1: Extracted Fields Card */}
             {activeTab === 'fields' && (
-              <ResultsView result={extractionResult} />
+              <ResultsView 
+                result={extractionResult} 
+                onUploadAnother={handleClear}
+              />
             )}
 
             {/* Tab 2: Visual Pipeline Gallery */}

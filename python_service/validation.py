@@ -1,7 +1,7 @@
 """
 validation.py - Post-Extraction Validation and Data Sanitization Layer.
 Applies rule-based regex checks, date normalization, format validation,
-and PII masking for Indian ID documents.
+and PII masking for Indian ID documents (Front & Back).
 """
 
 import re
@@ -9,8 +9,11 @@ from datetime import datetime
 from typing import Dict, Any, List, Tuple, Optional
 from schemas import (
     AadhaarData,
+    AadhaarBackData,
     PANData,
+    PANBackData,
     DrivingLicenceData,
+    DrivingLicenceBackData,
     UnsupportedDocumentData,
     FinalExtractionResult
 )
@@ -153,6 +156,7 @@ def validate_and_clean_extraction(
     doc_type = raw_data.get("document_type", "unsupported").lower()
     warnings: List[str] = []
 
+    # 1. AADHAAR FRONT
     if doc_type == "aadhaar":
         raw_num = raw_data.get("aadhaar_number")
         if not raw_num and raw_ocr_text:
@@ -201,6 +205,48 @@ def validate_and_clean_extraction(
             images=images or {}
         )
 
+    # 2. AADHAAR BACK (Address Side)
+    elif doc_type == "aadhaar_back":
+        address = raw_data.get("address")
+        if not address and raw_ocr_text:
+            # Fallback address extraction from OCR text
+            addr_idx = raw_ocr_text.lower().find("address")
+            if addr_idx != -1:
+                address = raw_ocr_text[addr_idx + 8:].strip()
+
+        pincode = raw_data.get("pincode")
+        if not pincode and raw_ocr_text:
+            pin_match = re.search(r"\b\d{6}\b", raw_ocr_text)
+            if pin_match:
+                pincode = pin_match.group(0)
+
+        care_of = raw_data.get("care_of")
+        state = raw_data.get("state")
+
+        aadhaar_back_model = AadhaarBackData(
+            document_type="aadhaar_back",
+            care_of=care_of,
+            address=address,
+            pincode=pincode,
+            state=state,
+            requires_front_side=True
+        )
+
+        warnings.append("Aadhaar Back Side verified (Address extracted). Upload the Front Side to complete Name & DOB verification.")
+
+        return FinalExtractionResult(
+            document_type="aadhaar_back",
+            is_valid=True,
+            short_circuited=False,
+            data=aadhaar_back_model,
+            warnings=warnings,
+            ocr_confidence=ocr_confidence,
+            raw_ocr_text=raw_ocr_text,
+            quality_report=quality_report,
+            images=images or {}
+        )
+
+    # 3. PAN FRONT
     elif doc_type == "pan":
         raw_pan = raw_data.get("pan_number")
         if not raw_pan and raw_ocr_text:
@@ -238,6 +284,29 @@ def validate_and_clean_extraction(
             images=images or {}
         )
 
+    # 4. PAN BACK (Barcode/Disclaimer Side)
+    elif doc_type == "pan_back":
+        pan_back_model = PANBackData(
+            document_type="pan_back",
+            message="PAN Card Back Side detected. The back contains only barcodes/disclaimers. Please upload the FRONT side with Photo and PAN Number.",
+            requires_front_side=True
+        )
+
+        warnings.append("PAN Back Side detected. No personal details exist on PAN back. Please flip and upload FRONT side.")
+
+        return FinalExtractionResult(
+            document_type="pan_back",
+            is_valid=True,
+            short_circuited=False,
+            data=pan_back_model,
+            warnings=warnings,
+            ocr_confidence=ocr_confidence,
+            raw_ocr_text=raw_ocr_text,
+            quality_report=quality_report,
+            images=images or {}
+        )
+
+    # 5. DRIVING LICENCE FRONT
     elif doc_type == "driving_licence":
         name = clean_name(raw_data.get("name"))
         
@@ -288,8 +357,37 @@ def validate_and_clean_extraction(
             images=images or {}
         )
 
+    # 6. DRIVING LICENCE BACK
+    elif doc_type == "driving_licence_back":
+        v_classes = raw_data.get("vehicle_classes", [])
+        if isinstance(v_classes, str):
+            v_classes = [v_classes]
+
+        dl_back_model = DrivingLicenceBackData(
+            document_type="driving_licence_back",
+            vehicle_classes=v_classes,
+            address=raw_data.get("address"),
+            badge_number=raw_data.get("badge_number"),
+            requires_front_side=True
+        )
+
+        warnings.append("Driving Licence Back Side verified (Vehicle categories extracted). Upload the Front Side to complete DL Number & Name verification.")
+
+        return FinalExtractionResult(
+            document_type="driving_licence_back",
+            is_valid=True,
+            short_circuited=False,
+            data=dl_back_model,
+            warnings=warnings,
+            ocr_confidence=ocr_confidence,
+            raw_ocr_text=raw_ocr_text,
+            quality_report=quality_report,
+            images=images or {}
+        )
+
+    # 7. UNSUPPORTED / NON-ID
     else:
-        error_msg = raw_data.get("error", "Only Aadhaar Card, PAN Card and Driving Licence are supported.")
+        error_msg = raw_data.get("error", "Only Indian Aadhaar Card, PAN Card and Driving Licence are supported.")
         unsupported_model = UnsupportedDocumentData(
             document_type="unsupported",
             error=error_msg

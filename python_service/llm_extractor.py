@@ -1,7 +1,7 @@
 """
 llm_extractor.py - Groq LLM Document Extraction Engine.
 Interfaces with Groq's models to analyze OCR layout text,
-classify the ID document type, and extract structured key-value pairs.
+classify the ID document type (Front & Back), and extract structured key-value pairs.
 """
 
 import os
@@ -22,34 +22,28 @@ except Exception:
 import httpx
 
 # System prompt for strict extraction
-SYSTEM_PROMPT = """You are an AI document information extraction engine.
+SYSTEM_PROMPT = """You are an expert Indian Identity Document Information Extraction engine.
 
 You receive OCR text and spatial layout information extracted from an Indian identity document.
 
-Only these document types are supported:
-1. Aadhaar Card
-2. PAN Card
-3. Driving Licence
+Supported Document Types and Sides:
+1. "aadhaar" (Front side of Aadhaar card)
+2. "aadhaar_back" (Back side of Aadhaar card with Address, C/O, Pincode)
+3. "pan" (Front side of PAN card with Name, Father's Name, DOB, PAN number)
+4. "pan_back" (Back side of PAN card - barcode / disclaimer only)
+5. "driving_licence" (Front side of Driving Licence)
+6. "driving_licence_back" (Back side of Driving Licence with vehicle classes & address)
 
-Your job is to:
-1. Determine the document type based on the text and keywords.
+Rules:
+1. Determine the exact document type and side.
 2. Extract only information clearly present in the OCR text.
 3. Never invent or guess missing information.
 4. If a field is missing or unreadable, return null.
-5. Correct small OCR spacing problems only when the value is unambiguous.
-6. Return only valid JSON. Do not include markdown codeblocks or extra text outside the JSON.
-7. Do not classify unrelated documents as Aadhaar, PAN, or Driving Licence.
+5. Return only valid JSON adhering strictly to the schema below.
 
 Document Schema Requirements:
 
-If Aadhaar Card:
-- "aadhaar_number": Look for a 12-digit number sequence (often in 4-digit groups like 1234 5678 9012 or continuous 12 digits or masked like XXXX XXXX 1234). Extract the exact number string.
-- "date_of_birth": Date in DD/MM/YYYY or YYYY-MM-DD format.
-- "year_of_birth": 4-digit year if only year is printed (e.g. "Year of Birth : 1985").
-- "gender": Male, Female, or Transgender.
-- "name": Full name of the cardholder (excluding headers like Government of India).
-- "address": Address text if present.
-Return:
+--- If Aadhaar Front ("aadhaar"):
 {
   "document_type": "aadhaar",
   "name": "<Full Name or null>",
@@ -57,23 +51,38 @@ Return:
   "year_of_birth": "<YYYY or null>",
   "gender": "<Male / Female / Transgender or null>",
   "aadhaar_number": "<12-digit number or null>",
-  "address": "<Full address if available or null>"
+  "address": "<Full address if present on front or null>"
 }
 
-If PAN Card:
-- "pan_number": 10-character alphanumeric code (e.g., ABCDE1234F).
-Return:
+--- If Aadhaar Back ("aadhaar_back"):
+Extract full address, Care of (Father/Mother/Spouse name), 6-digit Pincode, and State.
+{
+  "document_type": "aadhaar_back",
+  "care_of": "<C/O, S/O, D/O, W/O Guardian/Spouse Name or null>",
+  "address": "<Complete full residential address string>",
+  "pincode": "<6-digit postal code or null>",
+  "state": "<State name or null>",
+  "requires_front_side": true
+}
+
+--- If PAN Front ("pan"):
 {
   "document_type": "pan",
   "name": "<Full Name or null>",
   "father_name": "<Father's Name or null>",
   "date_of_birth": "<DD/MM/YYYY or YYYY-MM-DD or null>",
-  "pan_number": "<10-character PAN number or null>"
+  "pan_number": "<10-character PAN number e.g. ABCDE1234F or null>"
 }
 
-If Driving Licence:
-- "dl_number": Licence number (e.g., TN01 20220012345 or DL-1420110012345).
-Return:
+--- If PAN Back ("pan_back"):
+Note: PAN back has no personal info, only NSDL/UTIITSL barcode or disclaimer.
+{
+  "document_type": "pan_back",
+  "message": "PAN Card Back Side contains no personal details. Please flip the card and upload the FRONT side.",
+  "requires_front_side": true
+}
+
+--- If Driving Licence Front ("driving_licence"):
 {
   "document_type": "driving_licence",
   "name": "<Full Name or null>",
@@ -84,7 +93,16 @@ Return:
   "valid_until": "<Validity date or null>"
 }
 
-If any other document, receipt, bill, or unrecognized text:
+--- If Driving Licence Back ("driving_licence_back"):
+{
+  "document_type": "driving_licence_back",
+  "vehicle_classes": ["<LMV, MCWG, TRANS, etc.>"],
+  "address": "<Address if present or null>",
+  "badge_number": "<Badge number or null>",
+  "requires_front_side": true
+}
+
+--- If any other document, receipt, bill, or unrecognized text:
 {
   "document_type": "unsupported",
   "error": "Only Aadhaar Card, PAN Card and Driving Licence are supported."
@@ -159,7 +177,7 @@ def extract_document_info(
 --- SPATIAL LAYOUT INFORMATION ---
 {ocr_layout_text}
 
-Analyze the document text, determine if it is Aadhaar, PAN, or Driving Licence, and return the structured JSON strictly adhering to the schema.
+Analyze the document text, determine if it is Front or Back of Aadhaar, PAN, or Driving Licence, and return structured JSON strictly adhering to the schema.
 """
 
         completion = client.chat.completions.create(
