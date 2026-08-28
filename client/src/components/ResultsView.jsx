@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   AlertTriangle, 
   XCircle, 
@@ -13,13 +13,22 @@ import {
   RotateCcw,
   ArrowRight,
   Truck,
-  Car
+  Car,
+  Sparkles
 } from 'lucide-react';
+import DigitalCardGenerator from './DigitalCardGenerator';
 
 export default function ResultsView({ result, onUploadAnother }) {
-  if (!result) return null;
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [currentResult, setCurrentResult] = useState(result);
 
-  const { document_type, is_valid, short_circuited, data, warnings, images } = result;
+  useEffect(() => {
+    setCurrentResult(result);
+  }, [result]);
+
+  if (!currentResult) return null;
+
+  const { document_type, is_valid, short_circuited, data, warnings, images } = currentResult;
 
   // Document Badge Colors for Light Theme
   const getBadge = () => {
@@ -421,7 +430,33 @@ export default function ResultsView({ result, onUploadAnother }) {
           </div>
         )}
 
+        {/* Action Button: Edit & Generate Duplicate ID Card (Only for valid verified cards) */}
+        {document_type !== 'unsupported' && document_type !== 'pan_back' && (
+          <div className="mt-6 pt-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="text-xs text-slate-500">
+              Need to fix OCR typos or generate a digital duplicate card copy?
+            </div>
+            <button
+              onClick={() => setIsEditModalOpen(true)}
+              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-sky-600/20 transition flex items-center justify-center space-x-2 cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>Edit Details & Generate Duplicate Card</span>
+            </button>
+          </div>
+        )}
+
       </div>
+
+      {/* Interactive Duplicate ID Card Modal */}
+      <DigitalCardGenerator
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        documentData={currentResult}
+        onSaveUpdated={(updated) => {
+          setCurrentResult(updated);
+        }}
+      />
 
     </div>
   );

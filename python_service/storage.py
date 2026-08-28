@@ -127,6 +127,25 @@ def get_extraction_by_id(doc_id: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+def update_extraction_by_id(doc_id: str, updated_fields: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Updates an existing verification record with edited details or photo."""
+    history = read_history(auto_purge=False)
+    for i, doc in enumerate(history):
+        if doc.get("_id") == doc_id:
+            # Update data fields
+            if "data" in updated_fields:
+                doc["data"].update(updated_fields["data"])
+            if "thumbnail" in updated_fields:
+                doc["thumbnail"] = updated_fields["thumbnail"]
+            if "documentType" in updated_fields:
+                doc["documentType"] = updated_fields["documentType"]
+            doc["updatedAt"] = datetime.utcnow().isoformat() + "Z"
+            history[i] = doc
+            write_history(history)
+            return doc
+    return None
+
+
 def delete_extraction_by_id(doc_id: str) -> bool:
     history = read_history(auto_purge=False)
     new_history = [d for d in history if d.get("_id") != doc_id]
