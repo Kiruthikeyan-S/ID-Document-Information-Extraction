@@ -6,7 +6,7 @@ Groq LLM extraction, and Pydantic validation.
 
 import io
 import os
-from typing import Optional, Dict, Any, List
+from typing import Optional
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
@@ -22,15 +22,7 @@ from document_classifier import classify_document_heuristics
 from llm_extractor import extract_document_info, get_available_models
 from validation import validate_and_clean_extraction
 from utils import pil_to_cv2, cv2_to_base64, logger
-from storage import (
-    save_extraction, 
-    get_history, 
-    get_extraction_by_id, 
-    update_extraction_by_id,
-    delete_extraction_by_id, 
-    get_storage_stats, 
-    clean_storage
-)
+from storage import save_extraction, get_history, get_extraction_by_id, delete_extraction_by_id, get_storage_stats, clean_storage
 
 app = FastAPI(
     title="Utility Bot - Verification Document API",
@@ -83,15 +75,6 @@ def get_single_history(doc_id: str):
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     return doc
-
-
-@app.put("/history/{doc_id}")
-def update_single_history(doc_id: str, payload: Dict[str, Any]):
-    """Updates an existing verification record with edited details or photo."""
-    updated = update_extraction_by_id(doc_id, payload)
-    if not updated:
-        raise HTTPException(status_code=404, detail="Document not found")
-    return {"message": "Document updated successfully", "document": updated}
 
 
 @app.delete("/history/{doc_id}")

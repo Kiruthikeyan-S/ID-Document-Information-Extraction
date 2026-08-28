@@ -57,14 +57,6 @@ export const deleteDocumentApi = async (id) => {
 export const deleteHistoryApi = deleteDocumentApi;
 
 /**
- * Updates an existing extraction record with edited details.
- */
-export const updateDocumentApi = async (id, payload) => {
-  const response = await api.put(`/history/${id}`, payload);
-  return response.data;
-};
-
-/**
  * Fetches available Groq models from Python FastAPI backend.
  */
 export const getModelsApi = async () => {
