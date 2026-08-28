@@ -3,11 +3,12 @@ import Navbar from './components/Navbar';
 import UploadZone from './components/UploadZone';
 import SettingsPanel from './components/SettingsPanel';
 import ResultsView from './components/ResultsView';
+import DigitalCardGenerator from './components/DigitalCardGenerator';
 import VisualPipeline from './components/VisualPipeline';
 import JsonViewer from './components/JsonViewer';
 import HistoryDrawer from './components/HistoryDrawer';
 import { extractDocumentApi, getHealthApi } from './services/api';
-import { Sparkles, Eye, FileText, Code, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
+import { Sparkles, Eye, FileText, Code, AlertCircle, Loader2, ArrowRight, CreditCard } from 'lucide-react';
 
 export default function App() {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -141,10 +142,10 @@ export default function App() {
           <div className="space-y-4 animate-in fade-in-50 duration-300">
             
             {/* Tab Navigation */}
-            <div className="flex border-b border-slate-200 space-x-2">
+            <div className="flex border-b border-slate-200 space-x-2 overflow-x-auto">
               <button
                 onClick={() => setActiveTab('fields')}
-                className={`flex items-center space-x-2 py-2.5 px-4 rounded-t-xl text-xs font-bold transition border-b-2 ${
+                className={`flex items-center space-x-2 py-2.5 px-4 rounded-t-xl text-xs font-bold transition border-b-2 flex-shrink-0 ${
                   activeTab === 'fields'
                     ? 'border-sky-600 text-sky-700 bg-white shadow-sm'
                     : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -154,9 +155,24 @@ export default function App() {
                 <span>Extracted Fields</span>
               </button>
 
+              {/* Digital Card Preview & Editor Tab */}
+              {extractionResult.document_type !== 'unsupported' && extractionResult.document_type !== 'pan_back' && (
+                <button
+                  onClick={() => setActiveTab('card')}
+                  className={`flex items-center space-x-2 py-2.5 px-4 rounded-t-xl text-xs font-bold transition border-b-2 flex-shrink-0 ${
+                    activeTab === 'card'
+                      ? 'border-sky-600 text-sky-700 bg-white shadow-sm'
+                      : 'border-transparent text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <CreditCard className="w-4 h-4" />
+                  <span>Digital Card Generator & Editor</span>
+                </button>
+              )}
+
               <button
                 onClick={() => setActiveTab('pipeline')}
-                className={`flex items-center space-x-2 py-2.5 px-4 rounded-t-xl text-xs font-bold transition border-b-2 ${
+                className={`flex items-center space-x-2 py-2.5 px-4 rounded-t-xl text-xs font-bold transition border-b-2 flex-shrink-0 ${
                   activeTab === 'pipeline'
                     ? 'border-sky-600 text-sky-700 bg-white shadow-sm'
                     : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -168,7 +184,7 @@ export default function App() {
 
               <button
                 onClick={() => setActiveTab('ocr')}
-                className={`flex items-center space-x-2 py-2.5 px-4 rounded-t-xl text-xs font-bold transition border-b-2 ${
+                className={`flex items-center space-x-2 py-2.5 px-4 rounded-t-xl text-xs font-bold transition border-b-2 flex-shrink-0 ${
                   activeTab === 'ocr'
                     ? 'border-sky-600 text-sky-700 bg-white shadow-sm'
                     : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -180,7 +196,7 @@ export default function App() {
 
               <button
                 onClick={() => setActiveTab('json')}
-                className={`flex items-center space-x-2 py-2.5 px-4 rounded-t-xl text-xs font-bold transition border-b-2 ${
+                className={`flex items-center space-x-2 py-2.5 px-4 rounded-t-xl text-xs font-bold transition border-b-2 flex-shrink-0 ${
                   activeTab === 'json'
                     ? 'border-sky-600 text-sky-700 bg-white shadow-sm'
                     : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -199,12 +215,17 @@ export default function App() {
               />
             )}
 
-            {/* Tab 2: Visual Pipeline Gallery */}
+            {/* Tab 2: Digital Card Generator & Live Editor */}
+            {activeTab === 'card' && (
+              <DigitalCardGenerator result={extractionResult} />
+            )}
+
+            {/* Tab 3: Visual Pipeline Gallery */}
             {activeTab === 'pipeline' && (
               <VisualPipeline images={extractionResult.images} />
             )}
 
-            {/* Tab 3: Raw OCR & Spatial Text */}
+            {/* Tab 4: Raw OCR & Spatial Text */}
             {activeTab === 'ocr' && (
               <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-4">
                 <div>
@@ -219,7 +240,7 @@ export default function App() {
               </div>
             )}
 
-            {/* Tab 4: JSON Viewer */}
+            {/* Tab 5: JSON Viewer */}
             {activeTab === 'json' && (
               <JsonViewer
                 data={extractionResult}
