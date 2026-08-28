@@ -66,10 +66,17 @@ Extract full address, Care of (Father/Mother/Spouse name), 6-digit Pincode, and 
 }
 
 --- If PAN Front ("pan"):
+CRITICAL PAN CARD LAYOUT RULES:
+- Line 1 Label: "नाम / Name"
+- Line 2 Value: Cardholder Name (e.g., "S KIRUTHIKEYAN")
+- Line 3 Label: "पिता का नाम / Father's Name"
+- Line 4 Value: Father's Name (e.g., "SEVUGAPERUMAL"). The Father's Name is ALWAYS the English name printed on the line DIRECTLY BELOW "Father's Name".
+- NEVER extract Hindi label words like "नाम", "पिता का नाम", "राम", "Pita", "Ka", "Nam", or "Name" as the Father's Name!
+- Line 5: Date of Birth in DD/MM/YYYY format.
 {
   "document_type": "pan",
-  "name": "<Full Name or null>",
-  "father_name": "<Father's Name or null>",
+  "name": "<Full Name of cardholder>",
+  "father_name": "<Father's Name printed directly below the Father's Name label, e.g., SEVUGAPERUMAL>",
   "date_of_birth": "<DD/MM/YYYY or YYYY-MM-DD or null>",
   "pan_number": "<10-character PAN number e.g. ABCDE1234F or null>"
 }

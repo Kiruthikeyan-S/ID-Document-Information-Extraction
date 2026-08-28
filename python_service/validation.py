@@ -257,6 +257,22 @@ def validate_and_clean_extraction(
         name = clean_name(raw_data.get("name"))
         father_name = clean_name(raw_data.get("father_name"))
 
+        # Sanity check: prevent hallucination of Hindi label ("Ram", "Nam", "Pita", etc.)
+        invalid_father_names = {"ram", "nam", "naam", "pita", "father", "fathers", "name", "pita ka naam", "shri", "mr"}
+        if (not father_name or father_name.lower() in invalid_father_names) and raw_ocr_text:
+            lines = [l.strip() for l in raw_ocr_text.splitlines() if l.strip()]
+            for idx, line in enumerate(lines):
+                if re.search(r"father|पिता", line, re.IGNORECASE):
+                    for next_idx in range(idx + 1, min(idx + 4, len(lines))):
+                        candidate = lines[next_idx]
+                        if not re.search(r"\d{2}[/-]\d{2}[/-]\d{4}|\b[A-Z]{5}\d{4}[A-Z]\b|income|tax|dept|govt|india|permanent|account", candidate, re.IGNORECASE):
+                            cleaned_cand = clean_name(candidate)
+                            if cleaned_cand and len(cleaned_cand) > 2 and cleaned_cand.lower() not in invalid_father_names:
+                                father_name = cleaned_cand
+                                break
+                    if father_name and father_name.lower() not in invalid_father_names:
+                        break
+
         dob, dob_warn = normalize_date(raw_data.get("date_of_birth"))
         if dob_warn:
             warnings.append(dob_warn)
