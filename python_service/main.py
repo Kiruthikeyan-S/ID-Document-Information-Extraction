@@ -22,12 +22,12 @@ from document_classifier import classify_document_heuristics
 from llm_extractor import extract_document_info, get_available_models
 from validation import validate_and_clean_extraction
 from utils import pil_to_cv2, cv2_to_base64, logger
-from storage import save_extraction, get_history, get_extraction_by_id, delete_extraction_by_id
+from storage import save_extraction, get_history, get_extraction_by_id, delete_extraction_by_id, get_storage_stats, clean_storage
 
 app = FastAPI(
-    title="ID Document Information Extraction API",
-    version="2.0.0",
-    description="Direct Python FastAPI Backend for OpenCV preprocessing, Tesseract OCR, Decision Gate validation, Groq LLM extraction, and History persistence."
+    title="Utility Bot - Verification Document API",
+    version="3.0.0",
+    description="Utility Bot backend providing Aadhaar, PAN, and Driving Licence verification with 30-day auto-retention and photo storage."
 )
 
 # Enable CORS for React frontend
@@ -46,7 +46,7 @@ def health_check():
     tess_available, tess_msg = check_tesseract_available()
     return {
         "status": "healthy",
-        "service": "python_fastapi_backend",
+        "service": "utility_bot_backend",
         "tesseract_available": tess_available,
         "tesseract_message": tess_msg
     }
@@ -64,7 +64,7 @@ def list_models(api_key: Optional[str] = None):
 
 @app.get("/history")
 def list_history(limit: int = 50, page: int = 1, type: Optional[str] = None):
-    """Retrieves stored extraction history records."""
+    """Retrieves stored verification records with 30-day auto-retention."""
     return get_history(limit=limit, page=page, doc_type=type)
 
 
@@ -84,6 +84,18 @@ def delete_single_history(doc_id: str):
     if not success:
         raise HTTPException(status_code=404, detail="Document not found")
     return {"message": "Document deleted successfully", "id": doc_id}
+
+
+@app.get("/storage/stats")
+def storage_stats():
+    """Returns database and local storage capacity metrics (30-day retention)."""
+    return get_storage_stats()
+
+
+@app.post("/storage/clean")
+def trigger_storage_cleanup(force_all: bool = False):
+    """Cleans expired records or purges verification storage."""
+    return clean_storage(force_all=force_all)
 
 
 @app.post("/extract", response_model=FinalExtractionResult)
@@ -221,8 +233,12 @@ async def extract_document(
         short_circuited=False
     )
 
-    # 8. Save extraction to persistent history store
-    doc_id = save_extraction(final_result.model_dump() if hasattr(final_result, 'model_dump') else final_result.dict(), original_filename=file.filename or "document.jpg")
+    # 8. Save extraction to persistent history store with 30-day retention & photo thumbnail
+    doc_id = save_extraction(
+        result_dict=final_result.model_dump() if hasattr(final_result, 'model_dump') else final_result.dict(),
+        original_filename=file.filename or "document.jpg",
+        thumbnail_image=pipeline_images.get("original")
+    )
     final_result.id = doc_id
 
     return final_result

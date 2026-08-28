@@ -71,3 +71,19 @@ export const getHealthApi = async () => {
   const response = await api.get('/health');
   return response.data;
 };
+
+/**
+ * Retrieves storage usage statistics (30-day retention).
+ */
+export const getStorageStatsApi = async () => {
+  const response = await api.get('/storage/stats');
+  return response.data;
+};
+
+/**
+ * Triggers storage cleanup / purge.
+ */
+export const cleanStorageApi = async (forceAll = false) => {
+  const response = await api.post(`/storage/clean?force_all=${forceAll}`);
+  return response.data;
+};

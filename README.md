@@ -11,6 +11,9 @@ A modern full-stack document extraction platform built with a **React 18 Fronten
           │
           │ Direct HTTP Multipart Upload
           ▼
+
+
+          
 [ Python FastAPI Backend (:8000) ]
           │
           ├─► [ 1. Image Quality Check ] (Laplacian Variance Focus Metric)
