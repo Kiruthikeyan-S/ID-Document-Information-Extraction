@@ -19,10 +19,19 @@ import {
 export default function ResultsView({ result, onUploadAnother }) {
   if (!result) return null;
 
-  const { document_type, is_valid, short_circuited, data, warnings, images } = result;
+  const { document_type, is_valid, short_circuited, is_duplicate_or_sample, authenticity_status, data, warnings, images } = result;
 
   // Document Badge Colors for Light Theme
   const getBadge = () => {
+    if (is_duplicate_or_sample || authenticity_status === "DUPLICATE_COPY") {
+      return (
+        <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-rose-100 border border-rose-300 text-rose-800 text-xs font-bold">
+          <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+          <span>⚠️ DUPLICATE / SAMPLE COPY DETECTED</span>
+        </div>
+      );
+    }
+
     if (short_circuited) {
       return (
         <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold">
@@ -107,6 +116,22 @@ export default function ResultsView({ result, onUploadAnother }) {
             <span>Utility Bot 30-Day Storage</span>
           </div>
         </div>
+
+        {/* SECURITY ALERT: DUPLICATE / SAMPLE CARD WARNING */}
+        {(is_duplicate_or_sample || authenticity_status === "DUPLICATE_COPY") && (
+          <div className="mt-4 p-4 bg-rose-50 border-2 border-rose-300 rounded-xl flex items-start space-x-3 text-xs text-rose-900 shadow-sm">
+            <AlertTriangle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <strong className="block text-sm font-bold text-rose-950 mb-0.5">
+                ⚠️ SECURITY WARNING: Duplicate / Sample Card Watermark Detected!
+              </strong>
+              <p className="text-rose-800 leading-relaxed">
+                This document contains a <strong>'DUPLICATE / SAMPLE / DIGITAL COPY'</strong> watermark. 
+                While text details were extracted for reference, this document is <strong>NOT a genuine physical government ID</strong> and should be rejected for KYC verification.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* SPECIAL CASE: PAN BACK SIDE GUIDANCE PROMPT */}
         {document_type === 'pan_back' && (

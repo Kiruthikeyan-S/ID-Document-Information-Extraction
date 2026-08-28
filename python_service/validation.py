@@ -1,7 +1,7 @@
 """
-validation.py - Post-Extraction Validation and Data Sanitization Layer.
-Applies rule-based regex checks, date normalization, format validation,
-and PII masking for Indian ID documents (Front & Back).
+validation.py - Post-Extraction Validation, Tamper Detection, and Data Sanitization Layer.
+Applies rule-based regex checks, date normalization, Verhoeff Aadhaar verification,
+Duplicate/Sample watermark detection, and PII masking for Indian ID documents (Front & Back).
 """
 
 import re
@@ -17,6 +17,73 @@ from schemas import (
     UnsupportedDocumentData,
     FinalExtractionResult
 )
+
+# Verhoeff mathematical checksum multiplication and permutation tables for Aadhaar
+D_TABLE = [
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    [1, 2, 3, 4, 0, 6, 7, 8, 9, 5],
+    [2, 3, 4, 0, 1, 7, 8, 9, 5, 6],
+    [3, 4, 0, 1, 2, 8, 9, 5, 6, 7],
+    [4, 0, 1, 2, 3, 9, 5, 6, 7, 8],
+    [5, 9, 8, 7, 6, 0, 4, 3, 2, 1],
+    [6, 5, 9, 8, 7, 1, 0, 4, 3, 2],
+    [7, 6, 5, 9, 8, 2, 1, 0, 4, 3],
+    [8, 7, 6, 5, 9, 3, 2, 1, 0, 4],
+    [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
+]
+
+P_TABLE = [
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    [1, 5, 7, 6, 2, 8, 3, 0, 9, 4],
+    [5, 8, 0, 3, 7, 9, 6, 1, 4, 2],
+    [8, 9, 1, 6, 0, 4, 3, 5, 2, 7],
+    [9, 4, 5, 3, 1, 2, 6, 8, 7, 0],
+    [4, 2, 8, 6, 5, 7, 3, 9, 0, 1],
+    [2, 7, 9, 3, 8, 0, 6, 4, 1, 5],
+    [7, 0, 4, 6, 9, 1, 3, 2, 5, 8]
+]
+
+
+def check_verhoeff(num_str: str) -> bool:
+    """Validates 12-digit Aadhaar number using the mathematical Verhoeff checksum algorithm."""
+    digits = [int(c) for c in re.sub(r"\D", "", str(num_str))]
+    if len(digits) != 12:
+        return False
+    c = 0
+    for i, item in enumerate(reversed(digits)):
+        c = D_TABLE[c][P_TABLE[i % 8][item]]
+    return c == 0
+
+
+def detect_tamper_or_duplicate(raw_ocr_text: Optional[str]) -> Tuple[bool, str, List[str]]:
+    """Detects if an ID is marked with DUPLICATE, SAMPLE, SPECIMEN, or DIGITAL COPY watermarks."""
+    warnings = []
+    if not raw_ocr_text:
+        return False, "VERIFIED", warnings
+
+    duplicate_patterns = [
+        r"duplicate\s*digital\s*card\s*copy",
+        r"duplicate\s*copy",
+        r"duplicate",
+        r"sample\s*copy",
+        r"sample",
+        r"specimen",
+        r"dummy\s*card",
+        r"test\s*copy",
+        r"for\s*testing\s*only",
+        r"not\s*valid\s*for\s*official",
+        r"mock\s*copy",
+        r"replica",
+        r"fake\s*card",
+    ]
+    
+    text_lower = raw_ocr_text.lower()
+    for pat in duplicate_patterns:
+        if re.search(pat, text_lower):
+            warnings.append("⚠️ SECURITY ALERT: 'DUPLICATE / SAMPLE COPY' watermark detected! This document is not a genuine government-issued physical card.")
+            return True, "DUPLICATE_COPY", warnings
+
+    return False, "VERIFIED", warnings
 
 
 def normalize_date(raw_date: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
@@ -53,7 +120,7 @@ def normalize_date(raw_date: Optional[str]) -> Tuple[Optional[str], Optional[str
 
 
 def validate_and_mask_aadhaar(aadhaar_raw: Optional[str]) -> Tuple[Optional[str], List[str]]:
-    """Validates that Aadhaar has exactly 12 digits and returns masked version (********1234)."""
+    """Validates that Aadhaar has exactly 12 digits, checks Verhoeff integrity, and masks first 8 digits."""
     warnings = []
     if not aadhaar_raw:
         return None, ["Aadhaar number is missing."]
@@ -61,6 +128,9 @@ def validate_and_mask_aadhaar(aadhaar_raw: Optional[str]) -> Tuple[Optional[str]
     cleaned = re.sub(r"[\s\-\.]", "", str(aadhaar_raw))
 
     if re.match(r"^\d{12}$", cleaned):
+        # Mathematical Verhoeff validation
+        if not check_verhoeff(cleaned):
+            warnings.append("⚠️ Aadhaar checksum validation failed (Number does not conform to official UIDAI Verhoeff algorithm).")
         masked = "********" + cleaned[-4:]
         return masked, warnings
     
@@ -91,7 +161,7 @@ def validate_pan(pan_raw: Optional[str]) -> Tuple[Optional[str], List[str]]:
         'J': 'Artificial Juridical Person', 'G': 'Government Agency'
     }
     if entity_char not in valid_entities:
-        warnings.append(f"PAN 4th character '{entity_char}' is non-standard.")
+        warnings.append(f"⚠️ PAN 4th character '{entity_char}' is non-standard (Fake or invalid entity status).")
 
     return cleaned, warnings
 
@@ -152,9 +222,13 @@ def validate_and_clean_extraction(
     images: Optional[Dict[str, str]] = None,
     short_circuited: bool = False
 ) -> FinalExtractionResult:
-    """Main validation pipeline that parses LLM output into typed Pydantic models."""
+    """Main validation pipeline that parses LLM output into typed Pydantic models and checks for duplicates."""
     doc_type = raw_data.get("document_type", "unsupported").lower()
     warnings: List[str] = []
+
+    # Check for Duplicate / Specimen / Sample watermarks
+    is_duplicate, auth_status, dup_warnings = detect_tamper_or_duplicate(raw_ocr_text)
+    warnings.extend(dup_warnings)
 
     # 1. AADHAAR FRONT
     if doc_type == "aadhaar":
@@ -197,6 +271,8 @@ def validate_and_clean_extraction(
             document_type="aadhaar",
             is_valid=True,
             short_circuited=False,
+            is_duplicate_or_sample=is_duplicate,
+            authenticity_status=auth_status,
             data=aadhaar_model,
             warnings=warnings,
             ocr_confidence=ocr_confidence,
@@ -209,7 +285,6 @@ def validate_and_clean_extraction(
     elif doc_type == "aadhaar_back":
         address = raw_data.get("address")
         if not address and raw_ocr_text:
-            # Fallback address extraction from OCR text
             addr_idx = raw_ocr_text.lower().find("address")
             if addr_idx != -1:
                 address = raw_ocr_text[addr_idx + 8:].strip()
@@ -238,6 +313,8 @@ def validate_and_clean_extraction(
             document_type="aadhaar_back",
             is_valid=True,
             short_circuited=False,
+            is_duplicate_or_sample=is_duplicate,
+            authenticity_status=auth_status,
             data=aadhaar_back_model,
             warnings=warnings,
             ocr_confidence=ocr_confidence,
@@ -292,6 +369,8 @@ def validate_and_clean_extraction(
             document_type="pan",
             is_valid=True,
             short_circuited=False,
+            is_duplicate_or_sample=is_duplicate,
+            authenticity_status=auth_status,
             data=pan_model,
             warnings=warnings,
             ocr_confidence=ocr_confidence,
@@ -314,6 +393,8 @@ def validate_and_clean_extraction(
             document_type="pan_back",
             is_valid=True,
             short_circuited=False,
+            is_duplicate_or_sample=is_duplicate,
+            authenticity_status=auth_status,
             data=pan_back_model,
             warnings=warnings,
             ocr_confidence=ocr_confidence,
@@ -365,6 +446,8 @@ def validate_and_clean_extraction(
             document_type="driving_licence",
             is_valid=True,
             short_circuited=False,
+            is_duplicate_or_sample=is_duplicate,
+            authenticity_status=auth_status,
             data=dl_model,
             warnings=warnings,
             ocr_confidence=ocr_confidence,
@@ -393,6 +476,8 @@ def validate_and_clean_extraction(
             document_type="driving_licence_back",
             is_valid=True,
             short_circuited=False,
+            is_duplicate_or_sample=is_duplicate,
+            authenticity_status=auth_status,
             data=dl_back_model,
             warnings=warnings,
             ocr_confidence=ocr_confidence,
@@ -412,6 +497,8 @@ def validate_and_clean_extraction(
             document_type="unsupported",
             is_valid=False,
             short_circuited=short_circuited,
+            is_duplicate_or_sample=is_duplicate,
+            authenticity_status=auth_status,
             data=unsupported_model,
             warnings=["Document is not recognized as an Aadhaar, PAN, or Driving Licence."],
             ocr_confidence=ocr_confidence,

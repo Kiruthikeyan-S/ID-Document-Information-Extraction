@@ -113,6 +113,8 @@ class FinalExtractionResult(BaseModel):
     document_type: str
     is_valid: bool = Field(True, description="True if document is supported and validly parsed")
     short_circuited: bool = Field(False, description="True if decision gate rejected before LLM call")
+    is_duplicate_or_sample: bool = Field(False, description="True if duplicate, sample, or specimen watermark detected")
+    authenticity_status: str = Field("VERIFIED", description="VERIFIED, DUPLICATE_COPY, or SUSPICIOUS")
     data: ExtractedData
     warnings: List[str] = Field(default_factory=list, description="Validation warnings or data quality alerts")
     ocr_confidence: float = Field(0.0, description="Average OCR confidence score")
