@@ -7,7 +7,7 @@ Groq LLM extraction, and Pydantic validation.
 import io
 import os
 from typing import Optional
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Header, Query
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 import numpy as np
@@ -27,7 +27,7 @@ from storage import save_extraction, get_history, get_extraction_by_id, delete_e
 app = FastAPI(
     title="Utility Bot - Verification Document API",
     version="3.0.0",
-    description="Utility Bot backend providing Aadhaar, PAN, and Driving Licence verification with 30-day auto-retention and photo storage."
+    description="Utility Bot backend providing Aadhaar, PAN, and Driving Licence verification with 30-day auto-retention, photo storage, and Device ID isolation."
 )
 
 # Enable CORS for React frontend
@@ -59,43 +59,61 @@ def list_models(api_key: Optional[str] = None):
         models = get_available_models(api_key)
         return {"status": "success", "models": models}
     except Exception as e:
-        return {"status": "error", "message": str(e), "models": ["openai/gpt-oss-120b", "openai/gpt-oss-20b"]}
+        return {"status": "error", "message": str(e), "models": ["llama-3.3-70b-versatile", "openai/gpt-oss-120b", "llama-3.1-8b-instant"]}
 
 
 @app.get("/history")
-def list_history(limit: int = 50, page: int = 1, type: Optional[str] = None):
-    """Retrieves stored verification records with 30-day auto-retention."""
-    return get_history(limit=limit, page=page, doc_type=type)
+def list_history(
+    limit: int = 50, 
+    page: int = 1, 
+    type: Optional[str] = None,
+    x_device_id: Optional[str] = Header(None, alias="X-Device-Id"),
+    deviceId: Optional[str] = Query(None)
+):
+    """Retrieves stored verification records with 30-day auto-retention filtered by Device ID."""
+    active_device = x_device_id or deviceId
+    return get_history(limit=limit, page=page, doc_type=type, device_id=active_device)
 
 
 @app.get("/history/{doc_id}")
-def get_single_history(doc_id: str):
+def get_single_history(
+    doc_id: str,
+    x_device_id: Optional[str] = Header(None, alias="X-Device-Id")
+):
     """Retrieves single extraction record by ID."""
-    doc = get_extraction_by_id(doc_id)
+    doc = get_extraction_by_id(doc_id, device_id=x_device_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     return doc
 
 
 @app.delete("/history/{doc_id}")
-def delete_single_history(doc_id: str):
+def delete_single_history(
+    doc_id: str,
+    x_device_id: Optional[str] = Header(None, alias="X-Device-Id")
+):
     """Deletes extraction record by ID."""
-    success = delete_extraction_by_id(doc_id)
+    success = delete_extraction_by_id(doc_id, device_id=x_device_id)
     if not success:
         raise HTTPException(status_code=404, detail="Document not found")
     return {"message": "Document deleted successfully", "id": doc_id}
 
 
 @app.get("/storage/stats")
-def storage_stats():
+def storage_stats(
+    x_device_id: Optional[str] = Header(None, alias="X-Device-Id")
+):
     """Returns database and local storage capacity metrics (30-day retention)."""
-    return get_storage_stats()
+    return get_storage_stats(device_id=x_device_id)
 
 
 @app.post("/storage/clean")
-def trigger_storage_cleanup(force_all: bool = False):
+def trigger_storage_cleanup(
+    force_all: bool = False,
+    x_device_id: Optional[str] = Header(None, alias="X-Device-Id")
+):
     """Cleans expired records or purges verification storage."""
-    return clean_storage(force_all=force_all)
+    return clean_storage(device_id=x_device_id, force_all=force_all)
 
 
 @app.post("/extract", response_model=FinalExtractionResult)
@@ -109,7 +127,9 @@ async def extract_document(
     enable_threshold: bool = Form(False),
     threshold_method: str = Form("otsu"),
     model_name: Optional[str] = Form(None),
-    groq_api_key: Optional[str] = Form(None)
+    groq_api_key: Optional[str] = Form(None),
+    deviceId: Optional[str] = Form(None),
+    x_device_id: Optional[str] = Header(None, alias="X-Device-Id")
 ):
     """
     Main extraction pipeline endpoint with Pre-LLM Decision Gate.
@@ -233,11 +253,13 @@ async def extract_document(
         short_circuited=False
     )
 
-    # 8. Save extraction to persistent history store with 30-day retention & photo thumbnail
+    # 8. Save extraction to persistent history store with 30-day retention, photo thumbnail & device isolation
+    active_device = x_device_id or deviceId or "default_client"
     doc_id = save_extraction(
         result_dict=final_result.model_dump() if hasattr(final_result, 'model_dump') else final_result.dict(),
         original_filename=file.filename or "document.jpg",
-        thumbnail_image=pipeline_images.get("original")
+        thumbnail_image=pipeline_images.get("original"),
+        device_id=active_device
     )
     final_result.id = doc_id
 

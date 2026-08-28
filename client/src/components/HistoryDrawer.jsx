@@ -104,7 +104,10 @@ export default function HistoryDrawer({ isOpen, onClose, onSelectDocument }) {
                   30-Day TTL
                 </span>
               </div>
-              <p className="text-xs text-slate-500">Utility Bot document applicant records</p>
+              <div className="flex items-center space-x-1.5 text-xs text-slate-500 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+                <span>Private to this browser</span>
+              </div>
             </div>
             <button
               onClick={onClose}

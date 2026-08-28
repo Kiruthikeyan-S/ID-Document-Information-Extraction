@@ -3,9 +3,28 @@ import axios from 'axios';
 // Connect directly to Python FastAPI backend on port 8000 (with CORS enabled)
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
+/**
+ * Generates or retrieves a persistent Unique Device ID for user isolation.
+ */
+export const getDeviceId = () => {
+  let deviceId = localStorage.getItem('utility_bot_device_id');
+  if (!deviceId) {
+    deviceId = `dev_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 9)}`;
+    localStorage.setItem('utility_bot_device_id', deviceId);
+  }
+  return deviceId;
+};
+
 export const api = axios.create({
   baseURL: API_BASE,
   timeout: 120000,
+});
+
+// Attach Device ID to EVERY outgoing request for strict user data privacy
+api.interceptors.request.use((config) => {
+  const deviceId = getDeviceId();
+  config.headers['X-Device-Id'] = deviceId;
+  return config;
 });
 
 /**
@@ -14,6 +33,7 @@ export const api = axios.create({
 export const extractDocumentApi = async (file, settings = {}) => {
   const formData = new FormData();
   formData.append('file', file);
+  formData.append('deviceId', getDeviceId());
 
   Object.entries(settings).forEach(([key, value]) => {
     if (value !== undefined && value !== null) {
@@ -31,10 +51,11 @@ export const extractDocumentApi = async (file, settings = {}) => {
 };
 
 /**
- * Retrieves extraction history list.
+ * Retrieves extraction history list for the active device.
  */
 export const getHistoryApi = async (params = {}) => {
   const queryParams = typeof params === 'object' ? params : { page: 1, limit: 50 };
+  queryParams.deviceId = getDeviceId();
   const response = await api.get('/history', { params: queryParams });
   return response.data;
 };
@@ -74,7 +95,7 @@ export const getHealthApi = async () => {
 };
 
 /**
- * Retrieves storage usage statistics (30-day retention).
+ * Retrieves storage usage statistics (30-day retention) for active device.
  */
 export const getStorageStatsApi = async () => {
   const response = await api.get('/storage/stats');
@@ -82,7 +103,7 @@ export const getStorageStatsApi = async () => {
 };
 
 /**
- * Triggers storage cleanup / purge.
+ * Triggers storage cleanup / purge for active device.
  */
 export const cleanStorageApi = async (forceAll = false) => {
   const response = await api.post(`/storage/clean?force_all=${forceAll}`);

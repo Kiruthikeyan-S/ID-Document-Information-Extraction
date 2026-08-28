@@ -61,9 +61,10 @@ def write_history(data: List[Dict[str, Any]]) -> None:
 def save_extraction(
     result_dict: Dict[str, Any], 
     original_filename: str = "document.jpg",
-    thumbnail_image: Optional[str] = None
+    thumbnail_image: Optional[str] = None,
+    device_id: Optional[str] = None
 ) -> str:
-    """Saves document verification extraction with 30-day retention and photo thumbnail."""
+    """Saves document verification extraction with 30-day retention, photo thumbnail, and device isolation."""
     history = read_history(auto_purge=True)
     doc_id = f"doc_{int(datetime.now().timestamp())}_{uuid.uuid4().hex[:6]}"
     
@@ -76,9 +77,12 @@ def save_extraction(
 
     record = {
         "_id": doc_id,
+        "deviceId": device_id or "default_client",  # Device ID Isolation
         "documentType": result_dict.get("document_type", "unsupported"),
         "isValid": result_dict.get("is_valid", True),
         "shortCircuited": result_dict.get("short_circuited", False),
+        "isDuplicateOrSample": result_dict.get("is_duplicate_or_sample", False),
+        "authenticityStatus": result_dict.get("authenticity_status", "VERIFIED"),
         "data": clean_data,
         "warnings": result_dict.get("warnings", []),
         "ocrConfidence": result_dict.get("ocr_confidence", 0.0),
@@ -92,15 +96,26 @@ def save_extraction(
     }
     
     history.insert(0, record)
-    # Keep up to 200 verification records within 30 days
-    if len(history) > 200:
-        history = history[:200]
+    # Keep up to 300 verification records within 30 days
+    if len(history) > 300:
+        history = history[:300]
     write_history(history)
     return doc_id
 
 
-def get_history(limit: int = 50, page: int = 1, doc_type: Optional[str] = None) -> Dict[str, Any]:
+def get_history(
+    limit: int = 50, 
+    page: int = 1, 
+    doc_type: Optional[str] = None,
+    device_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """Retrieves verification records filtered by Device ID for strict user privacy."""
     history = read_history(auto_purge=True)
+    
+    # Filter by Device ID if provided (Strict User Privacy Isolation)
+    if device_id and device_id != "admin_all":
+        history = [d for d in history if d.get("deviceId") == device_id]
+        
     if doc_type:
         history = [d for d in history if d.get("documentType") == doc_type]
     
@@ -114,31 +129,51 @@ def get_history(limit: int = 50, page: int = 1, doc_type: Optional[str] = None) 
         "total": total,
         "page": page,
         "pages": pages,
+        "deviceId": device_id,
         "retentionDays": RETENTION_DAYS,
         "source": "utility_bot_store"
     }
 
 
-def get_extraction_by_id(doc_id: str) -> Optional[Dict[str, Any]]:
+def get_extraction_by_id(doc_id: str, device_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
     history = read_history(auto_purge=True)
     for doc in history:
         if doc.get("_id") == doc_id:
+            # If device_id provided, ensure ownership
+            if device_id and device_id != "admin_all" and doc.get("deviceId") != device_id:
+                return None
             return doc
     return None
 
 
-def delete_extraction_by_id(doc_id: str) -> bool:
+def delete_extraction_by_id(doc_id: str, device_id: Optional[str] = None) -> bool:
     history = read_history(auto_purge=False)
-    new_history = [d for d in history if d.get("_id") != doc_id]
-    if len(new_history) != len(history):
+    new_history = []
+    found = False
+    for d in history:
+        if d.get("_id") == doc_id:
+            # If device_id provided, ensure ownership
+            if device_id and device_id != "admin_all" and d.get("deviceId") != device_id:
+                new_history.append(d)
+                continue
+            found = True
+        else:
+            new_history.append(d)
+            
+    if found:
         write_history(new_history)
         return True
     return False
 
 
-def get_storage_stats() -> Dict[str, Any]:
-    """Returns storage space usage, record count, and 30-day retention stats."""
+def get_storage_stats(device_id: Optional[str] = None) -> Dict[str, Any]:
+    """Returns storage space usage and record count for the requesting device and overall."""
     history = read_history(auto_purge=True)
+    
+    device_records = history
+    if device_id and device_id != "admin_all":
+        device_records = [d for d in history if d.get("deviceId") == device_id]
+
     file_size_bytes = 0
     if os.path.exists(HISTORY_FILE):
         file_size_bytes = os.path.getsize(HISTORY_FILE)
@@ -147,21 +182,29 @@ def get_storage_stats() -> Dict[str, Any]:
     mb_size = round(file_size_bytes / (1024.0 * 1024.0), 2)
 
     return {
+        "deviceRecords": len(device_records),
         "totalRecords": len(history),
-        "maxRecords": 200,
+        "maxRecords": 300,
         "retentionDays": RETENTION_DAYS,
         "storageSizeBytes": file_size_bytes,
         "storageSizeKB": kb_size,
         "storageSizeMB": mb_size,
-        "percentUsed": min(100, round((len(history) / 200.0) * 100, 1)),
+        "percentUsed": min(100, round((len(history) / 300.0) * 100, 1)),
+        "deviceId": device_id
     }
 
 
-def clean_storage(force_all: bool = False) -> Dict[str, Any]:
-    """Purges expired records or clears storage if requested."""
-    if force_all:
+def clean_storage(device_id: Optional[str] = None, force_all: bool = False) -> Dict[str, Any]:
+    """Purges expired records or clears storage for this device."""
+    if force_all and (not device_id or device_id == "admin_all"):
         write_history([])
         return {"message": "All verification storage cleared successfully.", "remaining": 0}
     
+    if device_id and device_id != "admin_all":
+        history = read_history(auto_purge=False)
+        new_history = [d for d in history if d.get("deviceId") != device_id]
+        write_history(new_history)
+        return {"message": f"Storage cleared for device {device_id}.", "remaining": 0}
+
     history = read_history(auto_purge=True)
     return {"message": "Storage cleaned. Expired records (>30 days) removed.", "remaining": len(history)}
