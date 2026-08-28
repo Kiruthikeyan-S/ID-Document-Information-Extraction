@@ -135,12 +135,12 @@ def get_groq_client(api_key: Optional[str] = None) -> Groq:
 def get_available_models(api_key: Optional[str] = None) -> list:
     """Fetches list of available chat models from Groq account."""
     fallback_models = [
-        "openai/gpt-oss-120b",
-        "openai/gpt-oss-20b",
-        "qwen/qwen3.6-27b",
-        "groq/compound-mini",
         "llama-3.3-70b-versatile",
-        "llama-3.1-8b-instant"
+        "openai/gpt-oss-120b",
+        "qwen/qwen3.6-27b",
+        "llama-3.1-8b-instant",
+        "groq/compound-mini",
+        "openai/gpt-oss-20b"
     ]
     try:
         client = get_groq_client(api_key)
@@ -149,7 +149,10 @@ def get_available_models(api_key: Optional[str] = None) -> list:
             m.id for m in models.data
             if not m.id.startswith("whisper") and not "prompt-guard" in m.id
         ]
-        return chat_models if chat_models else fallback_models
+        # Prioritize high-speed models
+        preferred = ["llama-3.3-70b-versatile", "openai/gpt-oss-120b", "qwen/qwen3.6-27b", "llama-3.1-8b-instant"]
+        sorted_models = [m for m in preferred if m in chat_models] + [m for m in chat_models if m not in preferred]
+        return sorted_models if sorted_models else fallback_models
     except Exception:
         return fallback_models
 
@@ -162,70 +165,74 @@ def extract_document_info(
     heuristic_hint: Optional[str] = None,
     temperature: float = 0.0
 ) -> Tuple[Dict[str, Any], Optional[str]]:
-    """Sends the OCR text and layout metadata to Groq LLM for classification and extraction."""
+    """Sends the OCR text and layout metadata to Groq LLM for ultra-fast classification and extraction."""
     if not ocr_raw_text or not ocr_raw_text.strip():
         return {
             "document_type": "unsupported",
             "error": "No readable text detected in the image."
         }, "No text was detected by the OCR engine."
 
-    model = model_name or os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+    # Default to ultra-fast 70B model for sub-second responses
+    primary_model = model_name or os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    models_to_try = [primary_model, "llama-3.1-8b-instant", "openai/gpt-oss-120b"]
+    
+    # Remove duplicates while preserving order
+    models_to_try = list(dict.fromkeys(models_to_try))
 
-    try:
-        client = get_groq_client(api_key)
+    hint_text = f"\nContext/Keyword Analysis Hint: {heuristic_hint}\n" if heuristic_hint else ""
 
-        hint_text = f"\nContext/Keyword Analysis Hint: {heuristic_hint}\n" if heuristic_hint else ""
+    # Truncate layout text if overly verbose to ensure sub-second response
+    clean_layout = ocr_layout_text[:3000] if len(ocr_layout_text) > 3000 else ocr_layout_text
 
-        user_content = f"""Here is the extracted OCR text from the document:
+    user_content = f"""Here is the extracted OCR text from the document:
 {hint_text}
 --- RAW OCR TEXT ---
-{ocr_raw_text}
+{ocr_raw_text[:2000]}
 
 --- SPATIAL LAYOUT INFORMATION ---
-{ocr_layout_text}
+{clean_layout}
 
 Analyze the document text, determine if it is Front or Back of Aadhaar, PAN, or Driving Licence, and return structured JSON strictly adhering to the schema.
 """
 
-        completion = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_content}
-            ],
-            temperature=temperature,
-            response_format={"type": "json_object"}
-        )
+    client = get_groq_client(api_key)
+    last_error = None
 
-        response_text = completion.choices[0].message.content.strip()
-
+    for model in models_to_try:
         try:
-            extracted_json = json.loads(response_text)
-            return extracted_json, None
-        except json.JSONDecodeError as json_err:
-            start_idx = response_text.find("{")
-            end_idx = response_text.rfind("}")
-            if start_idx != -1 and end_idx != -1:
-                clean_json_str = response_text[start_idx : end_idx + 1]
-                extracted_json = json.loads(clean_json_str)
-                return extracted_json, None
-            return {
-                "document_type": "unsupported",
-                "error": f"Failed to parse LLM response as JSON: {str(json_err)}"
-            }, f"JSON Parse Error: {str(json_err)}"
+            completion = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": user_content}
+                ],
+                temperature=temperature,
+                response_format={"type": "json_object"},
+                timeout=12.0
+            )
 
-    except GroqError as groq_err:
-        return {
-            "document_type": "unsupported",
-            "error": f"Groq API Error: {str(groq_err)}"
-        }, f"Groq API communication error: {str(groq_err)}"
-    except ValueError as val_err:
-        return {
-            "document_type": "unsupported",
-            "error": str(val_err)
-        }, str(val_err)
-    except Exception as general_err:
-        return {
-            "document_type": "unsupported",
-            "error": f"Unexpected error during extraction: {str(general_err)}"
-        }, str(general_err)
+            response_text = completion.choices[0].message.content.strip()
+
+            try:
+                extracted_json = json.loads(response_text)
+                return extracted_json, None
+            except json.JSONDecodeError as json_err:
+                start_idx = response_text.find("{")
+                end_idx = response_text.rfind("}")
+                if start_idx != -1 and end_idx != -1:
+                    clean_json_str = response_text[start_idx : end_idx + 1]
+                    extracted_json = json.loads(clean_json_str)
+                    return extracted_json, None
+                last_error = f"JSON Parse Error with {model}: {str(json_err)}"
+
+        except GroqError as groq_err:
+            last_error = f"Groq Error with {model}: {str(groq_err)}"
+            continue
+        except Exception as e:
+            last_error = f"Error with {model}: {str(e)}"
+            continue
+
+    return {
+        "document_type": "unsupported",
+        "error": f"Extraction failed after model fallbacks: {last_error}"
+    }, last_error
