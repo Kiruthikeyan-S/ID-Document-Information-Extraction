@@ -7,16 +7,16 @@
 [![Groq LPU](https://img.shields.io/badge/LLM-Groq_LPU_(Llama_3.3_70B)-F55036.svg?style=flat)](https://groq.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Utility Bot** is a high-performance, enterprise-grade identity verification system designed to extract, validate, and authenticate Indian government-issued identity documents (**Aadhaar Card**, **PAN Card**, and **Driving Licence**) with sub-second latency and bank-grade accuracy.
+**Utility Bot** is a high-performance, enterprise-grade identity verification system designed to extract, validate, and authenticate Indian government-issued identity documents (**Aadhaar Card**, **PAN Card**, and **Driving Licence**) with sub-second latency, bank-grade accuracy, and strict per-user privacy isolation.
 
 ---
 
 ## 📑 Table of Contents
 - [Architecture & Pipeline](#-architecture--pipeline)
 - [Key Features & Innovations](#-key-features--innovations)
-- [How It Works (Step-by-Step)](#-how-it-works-step-by-step)
-- [30-Day Retention & Storage Architecture](#-30-day-retention--storage-architecture)
+- [User Data Isolation (Device ID)](#-user-data-isolation-device-id)
 - [Fraud & Duplicate Card Detection](#-fraud--duplicate-card-detection)
+- [30-Day Retention & Storage Architecture](#-30-day-retention--storage-architecture)
 - [Tech Stack](#-tech-stack)
 - [API Reference](#-api-reference)
 - [Getting Started](#-getting-started)
@@ -31,9 +31,10 @@ Utility Bot runs on a streamlined **2-Tier Architecture** connecting a **React 1
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
 │                               STAGE 1: REACT 18 WEB CLIENT (:5173)                               │
 │  • Clean Light Theme Dashboard                                                                   │
+│  • Automatic Device ID generation (localStorage) for per-user privacy isolation                 │
 │  • Instant client-side MIME validation & thumbnail preview (URL.createObjectURL)                 │
 └────────────────────────────────────────────────┬─────────────────────────────────────────────────┘
-                                                 │ Direct HTTP POST (Multipart Image Form-Data)
+                                                 │ Direct HTTP POST (Multipart Image Form-Data + X-Device-Id)
                                                  ▼
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
 │                             STAGE 2: PYTHON FASTAPI BACKEND (:8000)                              │
@@ -93,13 +94,24 @@ Utility Bot runs on a streamlined **2-Tier Architecture** connecting a **React 1
 │                            STAGE 8: 30-DAY RETENTION STORE & DASHBOARD                           │
 │   ┌───────────────────────────────────────────────┐  ┌────────────────────────────────────────┐  │
 │   │            30-DAY RETENTION STORE             │  │          REACT LIGHT DASHBOARD         │  │
-│   │  • MongoDB / Local JSON storage               │  │  • Extracted Details Cards             │  │
+│   │  • Device ID Isolation (Private per user)     │  │  • Extracted Details Cards             │  │
 │   │  • 30-Day TTL auto-expiry policy              │  │  • Document Photo Preview Thumbnail    │  │
 │   │  • Stored Base64 photo thumbnail (~40KB)      │  │  • 3-Stage Visual Pipeline Gallery     │  │
 │   │  • Storage usage meter & 1-click purge button │  │  • Structured JSON Viewer & Export     │  │
 │   └───────────────────────────────────────────────┘  └────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## 🔒 User Data Isolation (Device ID)
+
+To ensure **strict applicant privacy in multi-user environments**, Utility Bot implements automatic **Device ID Isolation**:
+
+1. **Automatic Device ID**: Each user's browser automatically generates a unique UUID (e.g. `dev_8f3a1...`) stored locally in `localStorage`.
+2. **Private Verification History**: When User A opens the **Applicant History** drawer, they **only see documents uploaded from their own device**.
+3. **No Cross-User Leaks**: If User B uploads an Aadhaar card on their phone, User A cannot view User B's photo, name, or verification record.
+4. **Zero Login Friction**: Full privacy protection without requiring user passwords or registration accounts.
 
 ---
 
@@ -139,12 +151,12 @@ Utility Bot runs on a streamlined **2-Tier Architecture** connecting a **React 1
 | Layer | Technology | Purpose |
 | :--- | :--- | :--- |
 | **Frontend UI** | **React 18 + Vite + Tailwind CSS** | Clean Light Theme, drag-and-drop upload, visual pipeline, history drawer |
-| **Backend API** | **Python FastAPI (Async)** | In-memory stream processing, CORS, REST endpoints |
+| **Backend API** | **Python FastAPI (Async)** | In-memory stream processing, CORS, REST endpoints, Device ID header parsing |
 | **Computer Vision** | **OpenCV 4.9+** | Blur detection (Laplacian variance), glare reduction, CLAHE contrast |
 | **OCR Engine** | **Tesseract OCR (PSM 11)** | Spatial word tokenization, bounding box coordinates $(x, y, w, h)$, confidence % |
 | **AI Extraction** | **Groq LPU (`llama-3.3-70b-versatile`)** | Semantic field extraction, bilingual Hindi/English label parsing |
 | **Validation** | **Pydantic v2 + Regex** | Data typing, Aadhaar masking, Verhoeff checksum, ISO date normalization |
-| **Storage** | **MongoDB / Local JSON Store** | 30-day TTL auto-retention, photo thumbnail persistence |
+| **Storage** | **MongoDB / Local JSON Store** | 30-day TTL auto-retention, photo thumbnail persistence, Device ID isolation |
 
 ---
 
@@ -152,9 +164,11 @@ Utility Bot runs on a streamlined **2-Tier Architecture** connecting a **React 1
 
 ### 1. Document Extraction
 * **Endpoint**: `POST /extract`
+* **Headers**: `X-Device-Id: <device_uuid>` *(optional for user isolation)*
 * **Content-Type**: `multipart/form-data`
 * **Parameters**:
   * `file`: ID Document Image (`.jpg`, `.jpeg`, `.png`)
+  * `deviceId` *(optional)*: Device identifier
   * `model_name` *(optional)*: Groq model name (default: `llama-3.3-70b-versatile`)
   * `min_confidence` *(optional)*: OCR threshold (default: `25.0`)
   * `psm_mode` *(optional)*: Tesseract PSM mode (default: `11`)
@@ -189,11 +203,11 @@ Utility Bot runs on a streamlined **2-Tier Architecture** connecting a **React 1
 ```
 
 ### 2. History & Storage Endpoints
-* `GET /history`: List past verified applicant records (with 30-day retention).
+* `GET /history`: List verification records for the requesting `X-Device-Id` (with 30-day retention).
 * `GET /history/{id}`: Retrieve single verification record.
 * `DELETE /history/{id}`: Delete record.
-* `GET /storage/stats`: Returns storage usage (KB/MB), record count, and capacity percentage.
-* `POST /storage/clean?force_all=false`: Purges expired records (>30 days).
+* `GET /storage/stats`: Returns device & total storage usage (KB/MB), record count, and capacity percentage.
+* `POST /storage/clean?force_all=false`: Purges expired records (>30 days) for requesting device.
 * `GET /health`: Health check reporting Tesseract OCR and backend status.
 * `GET /models`: Returns available Groq AI chat completion models.
 
