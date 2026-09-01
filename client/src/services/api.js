@@ -4,15 +4,85 @@ import axios from 'axios';
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 /**
- * Generates or retrieves a persistent Unique Device ID for user isolation.
+ * Generates a deterministic, REAL Hardware & Browser Fingerprint for this physical device.
+ * Based on CPU cores, GPU canvas rendering hash, screen resolution, and OS architecture.
+ * This ID is stable and permanently tied to this real physical computer.
+ */
+export const getRealHardwareFingerprint = () => {
+  try {
+    const nav = window.navigator || {};
+    const scr = window.screen || {};
+    
+    // 1. Gather hardware & environment parameters
+    const hardwareProps = [
+      nav.userAgent || '',
+      nav.platform || '',
+      nav.hardwareConcurrency || 4, // CPU Cores
+      nav.language || '',
+      Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+      `${scr.width}x${scr.height}x${scr.colorDepth || 24}`,
+      window.devicePixelRatio || 1
+    ];
+
+    // 2. Compute Canvas GPU Shader Fingerprint
+    const canvas = document.createElement('canvas');
+    canvas.width = 200;
+    canvas.height = 50;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.textBaseline = 'top';
+      ctx.font = "14px 'Arial'";
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = '#f60';
+      ctx.fillRect(125, 1, 62, 20);
+      ctx.fillStyle = '#069';
+      ctx.fillText('UtilityBot_Device_Fingerprint_2026', 2, 15);
+      ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+      ctx.fillText('UtilityBot_Device_Fingerprint_2026', 4, 17);
+      hardwareProps.push(canvas.toDataURL());
+    }
+
+    // 3. Generate deterministic 32-bit Hash
+    const rawString = hardwareProps.join('###');
+    let hash = 0;
+    for (let i = 0; i < rawString.length; i++) {
+      const char = rawString.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash |= 0; // Convert to 32bit integer
+    }
+
+    const hexHash = Math.abs(hash).toString(16).padStart(8, '0');
+    const osTag = (nav.platform || 'pc').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const cores = nav.hardwareConcurrency || 4;
+    
+    return `device_${osTag}_${cores}core_${hexHash}`;
+  } catch (err) {
+    return 'device_workstation_primary';
+  }
+};
+
+/**
+ * Returns the fixed Real Hardware Device ID for this physical machine.
  */
 export const getDeviceId = () => {
   let deviceId = localStorage.getItem('utility_bot_device_id');
-  if (!deviceId) {
-    deviceId = `dev_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 9)}`;
+  if (!deviceId || deviceId.startsWith('dev_')) {
+    deviceId = getRealHardwareFingerprint();
     localStorage.setItem('utility_bot_device_id', deviceId);
   }
   return deviceId;
+};
+
+/**
+ * Allows manually fixing / setting a custom Device Name.
+ */
+export const setCustomDeviceId = (customId) => {
+  if (customId && customId.trim()) {
+    const formatted = customId.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+    localStorage.setItem('utility_bot_device_id', formatted);
+    return formatted;
+  }
+  return getDeviceId();
 };
 
 export const api = axios.create({
