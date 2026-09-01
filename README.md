@@ -5,9 +5,10 @@
 [![OpenCV](https://img.shields.io/badge/Vision-OpenCV_4.9+-5C3EE8.svg?style=flat&logo=opencv)](https://opencv.org)
 [![Tesseract OCR](https://img.shields.io/badge/OCR-Tesseract_5.5-blue.svg?style=flat)](https://github.com/tesseract-ocr/tesseract)
 [![Groq LPU](https://img.shields.io/badge/LLM-Groq_LPU_(Llama_3.3_70B)-F55036.svg?style=flat)](https://groq.com)
+[![MongoDB](https://img.shields.io/badge/Database-MongoDB_Atlas-47A248.svg?style=flat&logo=mongodb)](https://www.mongodb.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Utility Bot** is a high-performance identity verification engine that extracts, validates, and authenticates Indian government ID cards (**Aadhaar Card**, **PAN Card**, and **Driving Licence**) in **< 1.2 seconds** with strict per-user privacy isolation.
+**Utility Bot** is an automated identity verification engine that extracts, validates, and authenticates Indian government ID cards (**Aadhaar Card**, **PAN Card**, and **Driving Licence**) in **< 1.2 seconds** with strict per-user privacy isolation and MongoDB persistence.
 
 ---
 
@@ -18,30 +19,31 @@
 │                         UTILITY BOT UNIFIED ARCHITECTURE PIPELINE                                │
 ├──────────────────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                                  │
-│  🌐 FRONTEND (React 18 SPA - Port 5173)                                                          │
-│  ├─ User uploads Aadhaar / PAN / Driving Licence photo (up to 48 MP / 10 MB)                      │
-│  ├─ Client-side MIME validation (JPG/PNG/WEBP) & 0.01s instant thumbnail preview (URL.createURL)  │
-│  └─ Automatic Device ID generation (localStorage) for per-user privacy isolation                 │
-│                                                                                                  │
-│                                      │ HTTP POST (Multipart Binary Stream + X-Device-Id Header)   │
-│                                      ▼                                                           │
-│                                                                                                  │
-│  ⚡ BACKEND (Python FastAPI Server - Port 8000)                                                  │
-│  ├─ 1. In-Memory Buffer (RAM only via io.BytesIO - Zero raw images saved to hard disk)           │
-│  ├─ 2. OpenCV Vision Preprocessing (Laplacian blur check score ≥ 100, glare removal, CLAHE)     │
-│  ├─ 3. Local Spatial Tesseract OCR (PSM 11 sparse text mode, word tokens + x,y,w,h coordinates)  │
-│  ├─ 4. Pre-LLM Decision Gate (UIDAI, Income Tax signatures) ──► Rejects Non-IDs in <0.2s ($0)    │
-│  ├─ 5. Groq AI Reasoning Engine (Llama 3.3 70B on LPU, ~600 tokens/sec, strict JSON, temp 0.0)  │
-│  ├─ 6. Validation & Privacy Layer (Aadhaar masking ********7645, Verhoeff checksum, ISO dates)  │
-│  └─ 7. 30-Day Retention Store (history.json + ~40KB photo thumbnail, 30-day auto-purge TTL)      │
-│                                                                                                  │
-│                                      │ Validated JSON Payload + Base64 Visual Gallery (~60KB)    │
-│                                      ▼                                                           │
-│                                                                                                  │
-│  📊 PRESENTATION DASHBOARD (React Light Dashboard)                                               │
-│  ├─ Extracted verification cards (Name, Father's Name, DOB, Gender, Masked ID, Address)          │
-│  ├─ Document photo preview thumbnail & authenticity status badge (Verified / Duplicate Alert)    │
-│  └─ 3-Stage visual pipeline gallery (Original, Glare-Removed, Color-Coded Bounding Boxes)        │
+│  1. User Opens Browser (:5173)                                                                   │
+│     └── Fixed in localStorage ➔ Device ID: "dev_mtcqjgy8_gr4nils"                                │
+│              │                                                                                   │
+│              ▼                                                                                   │
+│  2. User Uploads Aadhaar / PAN / Driving Licence Photo (up to 48 MP / 10 MB)                      │
+│     └── React attaches `X-Device-Id: dev_mtcqjgy8_gr4nils` to the multipart upload request       │
+│              │                                                                                   │
+│              ▼ (Direct HTTP POST to FastAPI Backend on Port 8000)                                 │
+│  3. FastAPI Backend Extracts Data in RAM Memory                                                  │
+│     ├── In-Memory Buffer (io.BytesIO - Zero raw images saved to hard disk for privacy)           │
+│     ├── OpenCV Vision Preprocessing (Laplacian blur check ≥ 100, glare removal, CLAHE contrast) │
+│     ├── Local Spatial Tesseract OCR (PSM 11 sparse text mode, word tokens + x,y,w,h coordinates) │
+│     ├── Pre-LLM Decision Gate (UIDAI, Income Tax signatures) ──► Rejects Non-IDs in <0.2s ($0)  │
+│     ├── Groq AI Reasoning Engine (Llama 3.3 70B on LPU, ~600 tokens/sec, strict JSON, temp 0.0) │
+│     ├── Validation & Privacy Layer (Aadhaar masking ********7645, Verhoeff checksum, ISO dates) │
+│     └── Compresses card photo into a lightweight ~40KB Base64 photo thumbnail                    │
+│              │                                                                                   │
+│              ▼                                                                                   │
+│  4. Saved Directly to MongoDB (`utility_bot.verifications` & history.json)                       │
+│     └── Stored with `deviceId: "dev_mtcqjgy8_gr4nils"` and `expiresAt: +30 days` (TTL Auto-Purge)│
+│              │                                                                                   │
+│              ▼                                                                                   │
+│  5. User Clicks "Applicant History" Drawer                                                       │
+│     └── MongoDB queries ONLY records matching `deviceId == "dev_mtcqjgy8_gr4nils"`               │
+│         (Other users and browsers cannot see these documents!)                                   │
 │                                                                                                  │
 └──────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -78,13 +80,13 @@
 
 ---
 
-## ⚡ Key Highlights in Simple Words
+## ⚡ Key Highlights
 
 1. **⚡ Fast AI Extraction (< 1.2s)**: Powered by `Llama 3.3 70B` on Groq LPU running at ~600 tokens/second.
 2. **🔒 Strict Data Privacy**: Images are processed directly in RAM memory (`io.BytesIO`) — zero raw photos saved on server disk.
-3. **🛡️ User Device Isolation**: Automatic Device ID in `localStorage` ensures each applicant only sees their own verification history.
+3. **🛡️ Real Device Privacy Isolation**: Fixed Device ID in `localStorage` ensures each applicant only sees their own verification history.
 4. **🚨 Fake Card Detection**: Scans for `DUPLICATE / SAMPLE / SPECIMEN` watermarks and runs mathematical **Verhoeff checksums** on Aadhaar numbers.
-5. **⏳ 30-Day Auto-Retention**: Records and compressed photo thumbnails (~40KB) are saved with a 30-day TTL auto-purge policy in `history.json`.
+5. **⏳ 30-Day Auto-Retention**: Stored in **MongoDB Atlas (`verifications`)** and `history.json` with a 30-day TTL auto-purge policy and compressed photo thumbnails (~40KB).
 
 ---
 

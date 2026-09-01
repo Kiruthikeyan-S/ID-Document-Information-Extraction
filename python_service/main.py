@@ -217,7 +217,7 @@ async def extract_document(
             document_type="unsupported",
             error="Decision Gate: Document does not match Indian Aadhaar, PAN, or Driving Licence patterns. LLM processing skipped."
         )
-        return FinalExtractionResult(
+        res = FinalExtractionResult(
             document_type="unsupported",
             is_valid=False,
             short_circuited=True,
@@ -228,6 +228,14 @@ async def extract_document(
             quality_report=quality_report,
             images=pipeline_images
         )
+        active_device = x_device_id or deviceId or "default_client"
+        res.id = save_extraction(
+            result_dict=res.model_dump() if hasattr(res, 'model_dump') else res.dict(),
+            original_filename=file.filename or "document.jpg",
+            thumbnail_image=pipeline_images.get("original"),
+            device_id=active_device
+        )
+        return res
 
     # 6. Groq LLM API Call (Only for supported IDs)
     heuristic_hint_str = f"Found pattern matching for: {heuristic_type.upper()}" if heuristic_type != "unsupported" else None

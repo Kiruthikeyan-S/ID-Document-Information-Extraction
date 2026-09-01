@@ -62,12 +62,14 @@ export const getRealHardwareFingerprint = () => {
 };
 
 /**
- * Returns the fixed Real Hardware Device ID for this physical machine.
+ * Returns the fixed Real Device ID for this machine.
+ * Persistently stored in localStorage so it remains constant across all sessions.
  */
 export const getDeviceId = () => {
   let deviceId = localStorage.getItem('utility_bot_device_id');
-  if (!deviceId || deviceId.startsWith('dev_')) {
-    deviceId = getRealHardwareFingerprint();
+  if (!deviceId) {
+    // Fixed default device ID as requested: dev_mtcqjgy8_gr4nils (or hardware fingerprint)
+    deviceId = 'dev_mtcqjgy8_gr4nils';
     localStorage.setItem('utility_bot_device_id', deviceId);
   }
   return deviceId;
