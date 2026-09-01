@@ -122,10 +122,29 @@ def save_extraction(
         "retentionDays": RETENTION_DAYS,
     }
     
+    # 1. Insert into local memory history
     history.insert(0, record)
     if len(history) > 300:
         history = history[:300]
     write_history(history)
+
+    # 2. Insert directly into MongoDB Atlas cloud collection
+    if mongo_collection is not None:
+        try:
+            import pymongo
+            import certifi
+            sync_client = pymongo.MongoClient(
+                MONGODB_URI, 
+                tlsCAFile=certifi.where(),
+                serverSelectionTimeoutMS=2000
+            )
+            sync_db = sync_client["utility_bot"]
+            sync_col = sync_db["verifications"]
+            sync_col.replace_one({"_id": doc_id}, record, upsert=True)
+            print(f"[Utility Bot Storage] Synced document {doc_id} to MongoDB Atlas cloud!")
+        except Exception as err:
+            print(f"[Utility Bot Storage] MongoDB sync notice (local backup preserved): {err}")
+
     return doc_id
 
 
