@@ -1,4 +1,4 @@
-# 🤖 Utility Bot - AI-Powered ID Document Verification & Extraction System
+# 🤖 Utility Bot - AI-Powered ID Document Verification System
 
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI_0.110+-009688.svg?style=flat&logo=fastapi)](https://fastapi.tiangolo.com)
 [![React](https://img.shields.io/badge/Frontend-React_18-61DAFB.svg?style=flat&logo=react)](https://react.dev)
@@ -7,286 +7,107 @@
 [![Groq LPU](https://img.shields.io/badge/LLM-Groq_LPU_(Llama_3.3_70B)-F55036.svg?style=flat)](https://groq.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Utility Bot** is a high-performance, enterprise-grade identity verification system designed to extract, validate, and authenticate Indian government-issued identity documents (**Aadhaar Card**, **PAN Card**, and **Driving Licence**) with sub-second latency, bank-grade accuracy, and strict per-user privacy isolation.
+**Utility Bot** is a high-performance identity verification engine that extracts, validates, and authenticates Indian government ID cards (**Aadhaar Card**, **PAN Card**, and **Driving Licence**) in **< 1.2 seconds** with strict per-user privacy isolation.
 
 ---
 
-## 📑 Table of Contents
-- [Complete Architecture & Pipeline](#-complete-architecture--pipeline)
-- [Key Features & Innovations](#-key-features--innovations)
-- [Image Storage & Privacy Lifecycle](#-image-storage--privacy-lifecycle)
-- [User Data Isolation (Device ID)](#-user-data-isolation-device-id)
-- [Fraud & Duplicate Card Detection](#-fraud--duplicate-card-detection)
-- [30-Day Retention Policy & TTL Storage](#-30-day-retention-policy--ttl-storage)
-- [Tech Stack](#-tech-stack)
-- [API Reference](#-api-reference)
-- [Getting Started](#-getting-started)
-
----
-
-## 📊 Complete Architecture & Pipeline
-
-Utility Bot operates on an ultra-fast, streamlined **2-Tier Architecture** connecting a **React 18 Light Dashboard** directly to an asynchronous **Python FastAPI Backend**:
+## 📊 Complete System Pipeline (Frontend + Backend in One Box)
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                               STAGE 1: REACT 18 WEB CLIENT (:5173)                               │
-│  • Clean Light Theme Dashboard                                                                   │
-│  • Automatic Device ID generation (localStorage) for per-user privacy isolation                 │
-│  • Instant client-side MIME validation & thumbnail preview (URL.createObjectURL in 0.01s)        │
-└────────────────────────────────────────────────┬─────────────────────────────────────────────────┘
-                                                 │ Direct HTTP POST (Multipart Image Form-Data + X-Device-Id)
-                                                 ▼
-┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                             STAGE 2: PYTHON FASTAPI BACKEND (:8000)                              │
-│  • In-Memory Buffer (RAM only - Zero permanent raw image saving on disk for data privacy)        │
-│  • High-throughput async request handler at /extract                                             │
-└────────────────────────────────────────────────┬─────────────────────────────────────────────────┘
-                                                 │
-                                                 ▼
-┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                         STAGE 3: OPENCV COMPUTER VISION PREPROCESSING                            │
-│  • Laplacian Focus Variance Check (Var(∇²I) ≥ 100) - rejects blurred / shaky images              │
-│  • Glare Reduction: removes flash specular reflections from plastic laminated cards             │
-│  • CLAHE Contrast: adaptive histogram equalization for faint watermarks and text                │
-│  • Bilateral Denoising: preserves sharp font edges while removing camera sensor noise            │
-└────────────────────────────────────────────────┬─────────────────────────────────────────────────┘
-                                                 │ Cleaned High-Contrast Image Matrix
-                                                 ▼
-┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                            STAGE 4: LOCAL SPATIAL TESSERACT OCR                                  │
-│  • PSM Mode 11 (Sparse Text): captures multi-column layouts, photos, chips, and seals            │
-│  • Extracts Word Tokens + 2D Coordinates (x, y, w, h) + Confidence Scores (%)                    │
-│  • Generates Color-Coded Bounding Boxes (Green >75%, Orange 50-75%, Yellow <50%)                 │
-└────────────────────────────────────────────────┬─────────────────────────────────────────────────┘
-                                                 │ Raw Text + 2D Spatial Layout Tokens
-                                                 ▼
-┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                          STAGE 5: PRE-LLM HEURISTIC DECISION GATE                                │
-│  • Evaluates Indian ID signatures (UIDAI, Income Tax Department, Form 7)                         │
-│  • Differentiates Front vs Back sides (Aadhaar Back, PAN Back, DL Back)                          │
-└──────────────────┬──────────────────────────────────────────────────┬────────────────────────────┘
-                   │                                                  │
-                   │ ❌ Non-ID / Receipt Detected                      │ ✅ Valid ID Match (Front or Back)
-                   ▼                                                  ▼
-   ┌───────────────────────────────┐          ┌────────────────────────────────────────────────────┐
-   │   ⚡ SHORT-CIRCUIT DECLINE    │          │            STAGE 6: GROQ AI REASONING              │
-   │   • Skips Groq API entirely   │          │  • Model: llama-3.3-70b-versatile (~600 tokens/s)  │
-   │   • 0 Cloud Tokens Burned     │          │  • Strict JSON Mode at temperature 0.0             │
-   │   • Instant <0.2s rejection   │          │  • Auto-fallback to llama-3.1-8b-instant           │
-   │   • Status: 'unsupported'     │          │  • Resolves bilingual Hindi/English PAN labels     │
-   └───────────────┬───────────────┘          └───────────────────────┬────────────────────────────┘
-                   │                                                  │
-                   │                                                  │ Raw JSON Payload
-                   │                                                  ▼
-                   │                          ┌────────────────────────────────────────────────────┐
-                   │                          │        STAGE 7: VALIDATION & PRIVACY LAYER         │
-                   │                          │  • Aadhaar Masking: '3393 3245 7645' ➔ '********7645'│
-                   │                          │  • Verhoeff Checksum: mathematical Aadhaar check   │
-                   │                          │  • Duplicate Watermark Scanner (Duplicate/Sample)  │
-                   │                          │  • Date ISO Normalization: 'DD/MM/YYYY' ➔ 'YYYY-MM-DD'│
-                   │                          │  • PAN Regex & Tax Entity Check: [A-Z]{5}[0-9]{4}[A-Z]│
-                   │                          └───────────────────────┬────────────────────────────┘
-                   │                                                  │
-                   └──────────────────────────┬───────────────────────┘
-                                              │ Validated JSON + Base64 Visual Gallery (~60KB)
-                                              ▼
-┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                            STAGE 8: 30-DAY RETENTION STORE & DASHBOARD                           │
-│   ┌───────────────────────────────────────────────┐  ┌────────────────────────────────────────┐  │
-│   │            30-DAY RETENTION STORE             │  │          REACT LIGHT DASHBOARD         │  │
-│   │  • Device ID Isolation (Private per user)     │  │  • Extracted Details Cards             │  │
-│   │  • 30-Day TTL auto-expiry policy              │  │  • Document Photo Preview Thumbnail    │  │
-│   │  • Stored Base64 photo thumbnail (~40KB)      │  │  • 3-Stage Visual Pipeline Gallery     │  │
-│   │  • Storage usage meter & 1-click purge button │  │  • Structured JSON Viewer & Export     │  │
-│   └───────────────────────────────────────────────┘  └────────────────────────────────────────┘  │
+│                         UTILITY BOT UNIFIED ARCHITECTURE PIPELINE                                │
+├──────────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                                  │
+│  🌐 FRONTEND (React 18 SPA - Port 5173)                                                          │
+│  ├─ User uploads Aadhaar / PAN / Driving Licence photo (up to 48 MP / 10 MB)                      │
+│  ├─ Client-side MIME validation (JPG/PNG/WEBP) & 0.01s instant thumbnail preview (URL.createURL)  │
+│  └─ Automatic Device ID generation (localStorage) for per-user privacy isolation                 │
+│                                                                                                  │
+│                                      │ HTTP POST (Multipart Binary Stream + X-Device-Id Header)   │
+│                                      ▼                                                           │
+│                                                                                                  │
+│  ⚡ BACKEND (Python FastAPI Server - Port 8000)                                                  │
+│  ├─ 1. In-Memory Buffer (RAM only via io.BytesIO - Zero raw images saved to hard disk)           │
+│  ├─ 2. OpenCV Vision Preprocessing (Laplacian blur check score ≥ 100, glare removal, CLAHE)     │
+│  ├─ 3. Local Spatial Tesseract OCR (PSM 11 sparse text mode, word tokens + x,y,w,h coordinates)  │
+│  ├─ 4. Pre-LLM Decision Gate (UIDAI, Income Tax signatures) ──► Rejects Non-IDs in <0.2s ($0)    │
+│  ├─ 5. Groq AI Reasoning Engine (Llama 3.3 70B on LPU, ~600 tokens/sec, strict JSON, temp 0.0)  │
+│  ├─ 6. Validation & Privacy Layer (Aadhaar masking ********7645, Verhoeff checksum, ISO dates)  │
+│  └─ 7. 30-Day Retention Store (history.json + ~40KB photo thumbnail, 30-day auto-purge TTL)      │
+│                                                                                                  │
+│                                      │ Validated JSON Payload + Base64 Visual Gallery (~60KB)    │
+│                                      ▼                                                           │
+│                                                                                                  │
+│  📊 PRESENTATION DASHBOARD (React Light Dashboard)                                               │
+│  ├─ Extracted verification cards (Name, Father's Name, DOB, Gender, Masked ID, Address)          │
+│  ├─ Document photo preview thumbnail & authenticity status badge (Verified / Duplicate Alert)    │
+│  └─ 3-Stage visual pipeline gallery (Original, Glare-Removed, Color-Coded Bounding Boxes)        │
+│                                                                                                  │
 └──────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🔒 Image Storage & Privacy Lifecycle
+## 🔤 Master Glossary of Full Forms
 
-| Image Lifecycle Phase | Where is it Stored? | Duration | Purpose |
-| :--- | :--- | :--- | :--- |
-| **1. Browser Selection** | **Client Memory (`URL.createObjectURL`)** | Instant (0.01s) | Immediate visual feedback before upload |
-| **2. Server Processing** | **Server RAM Buffer (`io.BytesIO`)** | 1.2 Seconds | In-memory OCR & vision (Zero disk writes) |
-| **3. Database History** | **JSON Store (`python_service/data/history.json`)** | 30 Days (TTL) | Compressed Base64 thumbnail (~40KB) for review |
-
----
-
-## 🛡️ User Data Isolation (Device ID)
-
-To ensure **strict applicant privacy in multi-user environments**, Utility Bot implements automatic **Device ID Isolation**:
-
-1. **Automatic Device ID**: Each user's browser automatically generates a unique UUID (e.g. `dev_8f3a1...`) stored locally in `localStorage`.
-2. **Private Verification History**: When User A opens the **Applicant History** drawer, they **only see documents uploaded from their own device**.
-3. **No Cross-User Leaks**: If User B uploads an Aadhaar card on their phone, User A cannot view User B's photo, name, or verification record.
-4. **Zero Login Friction**: Full privacy protection without requiring user passwords or registration accounts.
-
----
-
-## 🚨 Fraud & Duplicate Card Detection
-
-1. **Watermark Detection Engine**:
-   - Scans for `DUPLICATE`, `DIGITAL CARD COPY`, `SAMPLE`, `SPECIMEN`, `DUMMY`, and `FAKE` watermarks.
-   - Automatically tags status as `DUPLICATE_COPY` and displays a bold red security alert banner in the UI.
-2. **Verhoeff Dihedral Checksum Algorithm**:
-   - Mathematically validates the 12-digit Aadhaar number against the official government UIDAI checksum formula.
-3. **PAN Tax Entity Validation**:
-   - Checks the 4th character of the PAN number against registered government entity codes (`P` = Individual, `C` = Company, `F` = Firm).
-
----
-
-## ⚡ Key Features & Innovations
-
-1. **⚡ Sub-Second AI Extraction (< 1.2s)**:
-   - Powered by **Groq LPU** running `llama-3.3-70b-versatile` at ~600 tokens/second.
-   - Built-in multi-model auto-fallback (`llama-3.1-8b-instant`, `gpt-oss-120b`) ensures zero timeouts.
-
-2. **💰 100% Free of Cost ($0.00)**:
-   - OpenCV and Tesseract run locally with $0.00 compute costs.
-   - Pre-LLM Decision Gate rejects non-IDs locally in 0.2s without spending cloud tokens.
-
-3. **🔄 Intelligent Front & Back Side Handling**:
-   - **🆔 Aadhaar Back**: Automatically extracts **Full Residential Address**, **C/O (Guardian/Spouse)**, **Pincode**, and **State**.
-   - **💳 PAN Back**: Detects barcode/disclaimer side and displays a helpful prompt: *"Please flip card and upload FRONT side"*.
-   - **🚗 DL Back**: Extracts **Authorised Vehicle Categories** (`LMV`, `MCWG`, `TRANS`) and permanent address.
-
-4. **⏳ 30-Day Auto-Retention Policy (TTL Storage)**:
-   - Every verification entry is stamped with `expiresAt = createdAt + 30 days`.
-   - Stored with an optimized **Base64 photo thumbnail (~40KB)**.
-   - Auto-purges expired records to keep database storage clean and lightweight.
-
----
-
-## 🛠️ Tech Stack
-
-| Layer | Technology | Purpose |
+| Short Form | Full Form | Meaning & Purpose |
 | :--- | :--- | :--- |
-| **Frontend UI** | **React 18 + Vite + Tailwind CSS** | Clean Light Theme, drag-and-drop upload, visual pipeline, history drawer |
-| **Backend API** | **Python FastAPI (Async)** | In-memory stream processing, CORS, REST endpoints, Device ID header parsing |
-| **Computer Vision** | **OpenCV 4.9+** | Blur detection (Laplacian variance), glare reduction, CLAHE contrast |
-| **OCR Engine** | **Tesseract OCR (PSM 11)** | Spatial word tokenization, bounding box coordinates $(x, y, w, h)$, confidence % |
-| **AI Extraction** | **Groq LPU (`llama-3.3-70b-versatile`)** | Semantic field extraction, bilingual Hindi/English label parsing |
-| **Validation** | **Pydantic v2 + Regex** | Data typing, Aadhaar masking, Verhoeff checksum, ISO date normalization |
-| **Storage** | **MongoDB / Local JSON Store** | 30-day TTL auto-retention, photo thumbnail persistence, Device ID isolation |
+| **API** | **A**pplication **P**rogramming **I**nterface | Connects React frontend to Python backend over HTTP. |
+| **MIME** | **M**ultipurpose **I**nternet **M**ail **E**xtensions | Standard internet file type indicator (`image/jpeg`, `image/png`). |
+| **URL** | **U**niform **R**esource **L**ocator | Web address or object link (`http://localhost:5173`). |
+| **RAM** | **R**andom **A**ccess **M**emory | Fast temporary memory where images are processed in-memory. |
+| **I/O** | **I**nput / **O**utput | Reading and writing data streams. |
+| **OpenCV** | **Open** Source **C**omputer **V**ision Library | Image processing library for blur check, glare removal, and contrast. |
+| **BGR** | **B**lue, **G**reen, **R**ed | 3-channel color matrix format used by OpenCV. |
+| **CLAHE** | **C**ontrast **L**imited **A**daptive **H**istogram **E**qualization | Tile-based contrast booster for faint, shadow-covered text. |
+| **OCR** | **O**ptical **C**haracter **R**ecognition | Converts card image pixels into editable text. |
+| **PSM** | **P**age **S**egmentation **M**ode | Layout detection mode in Tesseract (Mode 11 = Sparse Text). |
+| **OEM** | **O**CR **E**ngine **M**ode | Neural network mode in Tesseract (Mode 3 = LSTM Engine). |
+| **LLM** | **L**arge **L**anguage **M**odel | AI reasoning model (`Llama 3.3 70B`). |
+| **LLaMA** | **L**arge **L**anguage **M**odel **M**eta **A**I | Meta's open-weights foundation AI model. |
+| **LPU** | **L**anguage **P**rocessing **U**nit | Groq's custom high-speed hardware accelerator (~600 tokens/s). |
+| **JSON** | **J**ava**S**cript **O**bject **N**otation | Structured lightweight data format used across APIs. |
+| **ISO** | **I**nternational **O**rganization for **S**tandardization | Standard date format (`YYYY-MM-DD`). |
+| **PII** | **P**ersonally **I**dentifiable **I**nformation | Sensitive personal data (masked for privacy). |
+| **TTL** | **T**ime **T**o **L**ive | Automated expiration countdown (30-day retention). |
+| **UIDAI** | **U**nique **I**dentification **A**uthority of **I**ndia | Official issuing authority of Aadhaar cards. |
+| **PAN** | **P**ermanent **A**ccount **N**umber | 10-digit tax identifier issued by Income Tax Department. |
+| **DL** | **D**riving **L**icence | Official motor vehicle permit. |
+| **MP** | **M**ega**p**ixel | Resolution ($1\text{ MP} = 1,000,000\text{ pixels}$). |
+| **KB / MB** | **K**ilo**b**yte / **M**ega**b**yte | Digital storage units ($1\text{ MB} = 1024\text{ KB}$). |
 
 ---
 
-## 📡 API Reference
+## ⚡ Key Highlights in Simple Words
 
-### 1. Document Extraction
-* **Endpoint**: `POST /extract`
-* **Headers**: `X-Device-Id: <device_uuid>` *(optional for user isolation)*
-* **Content-Type**: `multipart/form-data`
-* **Parameters**:
-  * `file`: ID Document Image (`.jpg`, `.jpeg`, `.png`)
-  * `deviceId` *(optional)*: Device identifier
-  * `model_name` *(optional)*: Groq model name (default: `llama-3.3-70b-versatile`)
-  * `min_confidence` *(optional)*: OCR threshold (default: `25.0`)
-  * `psm_mode` *(optional)*: Tesseract PSM mode (default: `11`)
-  * `enable_glare` *(optional)*: Glare removal toggle (default: `true`)
-  * `enable_clahe` *(optional)*: Contrast enhancement toggle (default: `true`)
-
-**Response Example (Aadhaar Card)**:
-```json
-{
-  "id": "doc_1724838421_a3f91b",
-  "document_type": "aadhaar",
-  "is_valid": true,
-  "short_circuited": false,
-  "is_duplicate_or_sample": false,
-  "authenticity_status": "VERIFIED",
-  "data": {
-    "document_type": "aadhaar",
-    "name": "S Kiruthikeyan",
-    "date_of_birth": "2004-11-18",
-    "gender": "Male",
-    "aadhaar_number": "********7645",
-    "address": null
-  },
-  "warnings": [],
-  "ocr_confidence": 84.5,
-  "images": {
-    "original": "data:image/jpeg;base64,...",
-    "preprocessed": "data:image/jpeg;base64,...",
-    "annotated": "data:image/jpeg;base64,..."
-  }
-}
-```
-
-### 2. History & Storage Endpoints
-* `GET /history`: List verification records for the requesting `X-Device-Id` (with 30-day retention).
-* `GET /history/{id}`: Retrieve single verification record.
-* `DELETE /history/{id}`: Delete record.
-* `GET /storage/stats`: Returns device & total storage usage (KB/MB), record count, and capacity percentage.
-* `POST /storage/clean?force_all=false`: Purges expired records (>30 days) for requesting device.
-* `GET /health`: Health check reporting Tesseract OCR and backend status.
-* `GET /models`: Returns available Groq AI chat completion models.
+1. **⚡ Fast AI Extraction (< 1.2s)**: Powered by `Llama 3.3 70B` on Groq LPU running at ~600 tokens/second.
+2. **🔒 Strict Data Privacy**: Images are processed directly in RAM memory (`io.BytesIO`) — zero raw photos saved on server disk.
+3. **🛡️ User Device Isolation**: Automatic Device ID in `localStorage` ensures each applicant only sees their own verification history.
+4. **🚨 Fake Card Detection**: Scans for `DUPLICATE / SAMPLE / SPECIMEN` watermarks and runs mathematical **Verhoeff checksums** on Aadhaar numbers.
+5. **⏳ 30-Day Auto-Retention**: Records and compressed photo thumbnails (~40KB) are saved with a 30-day TTL auto-purge policy in `history.json`.
 
 ---
 
-## 🚀 Getting Started
+## 🚀 How to Run the App (Quickstart)
 
-### 1. Prerequisites
-* **Python 3.9+**
-* **Node.js 18+** & **npm**
-* **Tesseract OCR 5.0+**
-  * Windows: Download installer from [UB-Mannheim/tesseract](https://github.com/UB-Mannheim/tesseract/wiki) (Default: `C:\Program Files\Tesseract-OCR\tesseract.exe`)
-  * Linux: `sudo apt install tesseract-ocr`
-  * macOS: `brew install tesseract`
-
-### 2. Configuration
-Create a `.env` file in `python_service/.env`:
-```env
-GROQ_API_KEY=your_groq_api_key_here
-GROQ_MODEL=llama-3.3-70b-versatile
-```
-
-### 3. Installation
-```bash
-# 1. Install Backend Dependencies
-cd python_service
-pip install -r requirements.txt
-
-# 2. Install Frontend Dependencies
-cd ../client
-npm install
-```
-
-### 4. Run Development Servers (1-Click on Windows)
-Simply double-click:
-```powershell
+### 🌟 1-Click Startup (Windows)
+Double-click:
+```cmd
 run-dev.bat
 ```
 
-Or run manually in separate terminals:
-```bash
-# Terminal 1: Python FastAPI Backend
-cd python_service
-python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-
-# Terminal 2: React Frontend Client
-cd client
+### 💻 Manual Startup (From Root Folder)
+```powershell
+# Start React Frontend (Port 5173)
 npm run dev
+
+# Start FastAPI Backend (Port 8000)
+npm run server
 ```
 
-Open your browser at: **`http://localhost:5173`**
-
----
-
-## 🐳 Docker Deployment
-
-Run the entire stack with Docker Compose:
-```bash
-export GROQ_API_KEY="your_groq_api_key_here"
-docker-compose up --build
-```
-* **React Client**: `http://localhost:5173`
-* **FastAPI Docs**: `http://localhost:8000/docs`
+Open your browser at: **[http://localhost:5173/](http://localhost:5173/)**
 
 ---
 
 ## 📄 License
-Distributed under the **MIT License**. See `LICENSE` for more information.
+Distributed under the **MIT License**.
