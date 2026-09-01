@@ -12,40 +12,72 @@
 
 ---
 
-## 📊 Complete System Pipeline (Frontend + Backend in One Box)
+## 📊 Box-Inside-Box Architecture Flowchart
 
 ```text
-┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                         UTILITY BOT UNIFIED ARCHITECTURE PIPELINE                                │
-├──────────────────────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                                  │
-│  1. User Opens Browser (:5173)                                                                   │
-│     └── Fixed in localStorage ➔ Device ID: "dev_mtcqjgy8_gr4nils"                                │
-│              │                                                                                   │
-│              ▼                                                                                   │
-│  2. User Uploads Aadhaar / PAN / Driving Licence Photo (up to 48 MP / 10 MB)                      │
-│     └── React attaches `X-Device-Id: dev_mtcqjgy8_gr4nils` to the multipart upload request       │
-│              │                                                                                   │
-│              ▼ (Direct HTTP POST to FastAPI Backend on Port 8000)                                 │
-│  3. FastAPI Backend Extracts Data in RAM Memory                                                  │
-│     ├── In-Memory Buffer (io.BytesIO - Zero raw images saved to hard disk for strict privacy)   │
-│     ├── OpenCV Vision Preprocessing (Laplacian blur check ≥ 100, glare removal, CLAHE contrast) │
-│     ├── Local Spatial Tesseract OCR (PSM 11 sparse text mode, word tokens + x,y,w,h coordinates) │
-│     ├── Pre-LLM Decision Gate (UIDAI, Income Tax signatures) ──► Rejects Non-IDs in <0.2s ($0)  │
-│     ├── Groq AI Reasoning Engine (Llama 3.3 70B on LPU, ~600 tokens/sec, strict JSON, temp 0.0) │
-│     ├── Validation & Privacy Layer (Aadhaar masking ********7645, Verhoeff checksum, ISO dates) │
-│     └── Compresses card photo into a lightweight ~40KB Base64 photo thumbnail                    │
-│              │                                                                                   │
-│              ▼                                                                                   │
-│  4. Saved Directly to MongoDB Atlas (`utility_bot.verifications` & history.json)                 │
-│     └── Stored with `deviceId: "dev_mtcqjgy8_gr4nils"` and `expiresAt: +30 days` (TTL Auto-Purge)│
-│              │                                                                                   │
-│              ▼                                                                                   │
-│  5. User Clicks "Applicant History" Drawer                                                       │
-│     └── MongoDB queries ONLY records matching `deviceId == "dev_mtcqjgy8_gr4nils"`               │
-│         (Other users and browsers cannot see these documents!)                                   │
-│                                                                                                  │
-└──────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ 🌐 CONTAINER 1: FRONTEND CLIENT LAYER (React 18 SPA - Port 5173)                                        │
+│  ┌─────────────────────────────────┐   ┌──────────────────────────────────┐   ┌─────────────────────┐  │
+│  │ 1. Device Privacy Box           │   │ 2. Upload & Validation Box       │   │ 3. UI Dashboard Box │  │
+│  │ • Fixed Device ID in localStore │──►│ • Camera upload (up to 48 MP)    │──►│ • Verified Cards    │  │
+│  │ • 'dev_mtcqjgy8_gr4nils'        │   │ • 0.01s MIME check & live preview│   │ • Photo Thumbnail   │  │
+│  └─────────────────────────────────┘   └──────────────────────────────────┘   └─────────────────────┘  │
+└───────────────────────────────────────────────────┬────────────────────────────────────────────────────┘
+                                                    │ 🚀 Direct HTTP POST (Multipart Image + X-Device-Id)
+                                                    ▼
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ ⚡ CONTAINER 2: BACKEND PROCESSING LAYER (Python FastAPI - Port 8000)                                   │
+│                                                                                                        │
+│  ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │ 🧠 SUB-BOX A: IN-MEMORY RAM BUFFER (io.BytesIO)                                                   │  │
+│  │ • Temporary electric RAM buffer | Zero raw images written to hard disk (Strict DPDP Compliance)  │  │
+│  └────────────────────────────────────────────────┬─────────────────────────────────────────────────┘  │
+│                                                   │ Image Byte Stream                                  │
+│                                                   ▼                                                    │
+│  ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │ 👁️ SUB-BOX B: OPENCV COMPUTER VISION PREPROCESSING                                                │  │
+│  │ • Downscaling to 1200px (1.2 MP) | Laplacian Blur Check (≥100) | Glare Removal | CLAHE Contrast  │  │
+│  └────────────────────────────────────────────────┬─────────────────────────────────────────────────┘  │
+│                                                   │ Cleaned Image Matrix                               │
+│                                                   ▼                                                    │
+│  ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │ 📖 SUB-BOX C: LOCAL SPATIAL TESSERACT OCR                                                        │  │
+│  │ • PSM Mode 11 (Sparse Text) | Word Tokens + (x, y, w, h) Coordinates | Green/Orange/Yellow Boxes  │  │
+│  └────────────────────────────────────────────────┬─────────────────────────────────────────────────┘  │
+│                                                   │ Raw Text + 2D Coordinates                          │
+│                                                   ▼                                                    │
+│  ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │ 🚪 SUB-BOX D: PRE-LLM HEURISTIC DECISION GATE                                                    │  │
+│  │ ┌──────────────────────────────────────┐     ┌────────────────────────────────────────────────┐  │  │
+│  │ │ ❌ Non-ID / Bill (Short-Circuit)      │     │ ✅ Valid ID Match (Front or Back)               │  │  │
+│  │ │ • Instant <0.2s rejection ($0.00 cost)│     │ • Proceeds to AI Reasoning Layer               │  │  │
+│  │ └──────────────────────────────────────┘     └───────────────────────┬────────────────────────┘  │  │
+│  └──────────────────────────────────────────────────────────────────────┼───────────────────────────┘  │
+│                                                                         │ Formatted Text Prompt        │
+│                                                                         ▼                              │
+│  ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │ 🦙 SUB-BOX E: GROQ AI REASONING ENGINE                                                           │  │
+│  │ • Llama 3.3 70B on LPU (~600 tokens/sec) | Strict JSON Mode at temp 0.0 | Resolves Hindi Labels  │  │
+│  └────────────────────────────────────────────────┬─────────────────────────────────────────────────┘  │
+│                                                   │ Raw JSON Payload                                   │
+│                                                   ▼                                                    │
+│  ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │ 🔒 SUB-BOX F: VALIDATION & PRIVACY ENGINE                                                        │  │
+│  │ • Aadhaar Masking (********7645) | Verhoeff Checksum | Duplicate Watermark Check | ISO Dates     │  │
+│  │ • Generates Compressed ~40KB Photo Thumbnail for History Preview                                 │  │
+│  └──────────────────────────────────────────────────────────────────────────────────────────────────┘  │
+└───────────────────────────────────────────────────┬────────────────────────────────────────────────────┘
+                                                    │ Validated Record + ~40KB Photo Thumbnail
+                                                    ▼
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ 💾 CONTAINER 3: 30-DAY PERSISTENT STORAGE LAYER                                                        │
+│  ┌──────────────────────────────────────────────┐   ┌───────────────────────────────────────────────┐  │
+│  │ ☁️ Box 1: MongoDB Atlas Cloud (verifications) │   │ 📁 Box 2: Local JSON Store (history.json)     │  │
+│  │ • Stored with deviceId: 'dev_mtcqjgy8_gr4nils'│   │ • Fallback offline store                      │  │
+│  │ • Stored with ~40KB Photo Thumbnail          │   │ • 30-Day automated retention policy           │  │
+│  │ • 30-Day TTL Automated Purge (expiresAt)     │   │ • Device-isolated history records             │  │
+│  └──────────────────────────────────────────────┘   └───────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
