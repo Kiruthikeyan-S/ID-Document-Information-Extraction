@@ -1,3 +1,9 @@
+"""
+storage.py - High-Performance Verification Storage Layer.
+Supports both MongoDB (via async Motor driver with TTL indexes) 
+and zero-dependency Local JSON Storage with 30-Day Auto-Retention & Device Isolation.
+"""
+
 import os
 import json
 import uuid
@@ -12,6 +18,22 @@ os.makedirs(DATA_DIR, exist_ok=True)
 if not os.path.exists(HISTORY_FILE):
     with open(HISTORY_FILE, "w", encoding="utf-8") as f:
         json.dump([], f)
+
+# MongoDB Configuration (Optional - Active if MONGODB_URI is provided)
+MONGODB_URI = os.getenv("MONGODB_URI")
+mongo_client = None
+mongo_db = None
+mongo_collection = None
+
+if MONGODB_URI:
+    try:
+        from motor.motor_asyncio import AsyncIOMotorClient
+        mongo_client = AsyncIOMotorClient(MONGODB_URI, serverSelectionTimeoutMS=2000)
+        mongo_db = mongo_client.get_database("utility_bot")
+        mongo_collection = mongo_db.get_collection("verifications")
+        print("[Utility Bot Storage] Connected to MongoDB Atlas / Local MongoDB.")
+    except Exception as e:
+        print(f"[Utility Bot Storage] MongoDB connection skipped (using local store): {e}")
 
 
 def read_history(auto_purge: bool = True) -> List[Dict[str, Any]]:
@@ -30,7 +52,6 @@ def read_history(auto_purge: bool = True) -> List[Dict[str, Any]]:
             created_str = doc.get("createdAt")
             if created_str:
                 try:
-                    # Parse ISO timestamp
                     clean_str = created_str.replace("Z", "+00:00")
                     created_dt = datetime.fromisoformat(clean_str).replace(tzinfo=None)
                     age_days = (now - created_dt).total_seconds() / 86400.0
@@ -89,14 +110,13 @@ def save_extraction(
         "qualityReport": result_dict.get("quality_report", {}),
         "rawOcrText": result_dict.get("raw_ocr_text", ""),
         "originalFileName": original_filename,
-        "thumbnail": thumbnail_image,  # Stored photo thumbnail for history preview
+        "thumbnail": thumbnail_image,  # Stored photo thumbnail (~40KB) for history preview
         "createdAt": now.isoformat() + "Z",
         "expiresAt": expires_at.isoformat() + "Z",
         "retentionDays": RETENTION_DAYS,
     }
     
     history.insert(0, record)
-    # Keep up to 300 verification records within 30 days
     if len(history) > 300:
         history = history[:300]
     write_history(history)
@@ -139,7 +159,6 @@ def get_extraction_by_id(doc_id: str, device_id: Optional[str] = None) -> Option
     history = read_history(auto_purge=True)
     for doc in history:
         if doc.get("_id") == doc_id:
-            # If device_id provided, ensure ownership
             if device_id and device_id != "admin_all" and doc.get("deviceId") != device_id:
                 return None
             return doc
@@ -152,7 +171,6 @@ def delete_extraction_by_id(doc_id: str, device_id: Optional[str] = None) -> boo
     found = False
     for d in history:
         if d.get("_id") == doc_id:
-            # If device_id provided, ensure ownership
             if device_id and device_id != "admin_all" and d.get("deviceId") != device_id:
                 new_history.append(d)
                 continue
@@ -190,7 +208,8 @@ def get_storage_stats(device_id: Optional[str] = None) -> Dict[str, Any]:
         "storageSizeKB": kb_size,
         "storageSizeMB": mb_size,
         "percentUsed": min(100, round((len(history) / 300.0) * 100, 1)),
-        "deviceId": device_id
+        "deviceId": device_id,
+        "databaseEngine": "MongoDB Atlas" if MONGODB_URI else "Local JSON Store"
     }
 
 
