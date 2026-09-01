@@ -17,7 +17,8 @@
 ┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │                               PHASE 1: CUSTOMER DOCUMENT INTAKE                                        │
 │  • High-Resolution Document Upload (Smartphones, Scanners, Webcams up to 48 MP)                       │
-│  • Instant 0.01s Pre-Flight Format Validation (JPEG / PNG / WEBP) & Live Customer Preview              │
+│  • Instant 0.01s Pre-Flight Format Validation  MIME Multipurpose Internet Mail Extensions
+                                                (JPEG / PNG / WEBP) & Live Customer Preview              │
 │  • Branch & Device Privacy Isolation (Each workstation/device operates in a secure private workspace)   │
 └───────────────────────────────────────────────────┬────────────────────────────────────────────────────┘
                                                     │ Secure HTTPS Encrypted Stream
