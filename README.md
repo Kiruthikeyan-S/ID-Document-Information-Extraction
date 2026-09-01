@@ -56,7 +56,7 @@
 │  ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐  │
 │  │ 🔒 5. Regulatory Compliance & Anti-Fraud Layer                                                   │  │
 │  │ • Privacy Number Masking: Automatically masks first 8 Aadhaar digits (********7645)              │  │
-│  │ • Mathematical Checksum Check: Verifies 12-digit Aadhaar validity with the Verhoeff algorithm   │  │
+│  │ • Mathematical Checksum Check: Verifies 12-digit Aadhaar validity                               │  │
 │  │ • Duplicate / Fake Card Scanner: Flags 'DUPLICATE', 'SAMPLE', 'SPECIMEN', or 'COPY' watermarks  │  │
 │  │ • Date Standardization: Converts all date formats to universal ISO (YYYY-MM-DD)                 │  │
 │  └──────────────────────────────────────────────────────────────────────────────────────────────────┘  │
