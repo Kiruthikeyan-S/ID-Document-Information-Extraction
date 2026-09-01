@@ -28,12 +28,18 @@ mongo_collection = None
 if MONGODB_URI:
     try:
         from motor.motor_asyncio import AsyncIOMotorClient
-        mongo_client = AsyncIOMotorClient(MONGODB_URI, serverSelectionTimeoutMS=2000)
+        import certifi
+        # Connect to MongoDB Atlas with secure SSL CA certificates
+        mongo_client = AsyncIOMotorClient(
+            MONGODB_URI, 
+            tlsCAFile=certifi.where(),
+            serverSelectionTimeoutMS=3000
+        )
         mongo_db = mongo_client.get_database("utility_bot")
         mongo_collection = mongo_db.get_collection("verifications")
-        print("[Utility Bot Storage] Connected to MongoDB Atlas / Local MongoDB.")
+        print("[Utility Bot Storage] MongoDB Atlas configuration loaded.")
     except Exception as e:
-        print(f"[Utility Bot Storage] MongoDB connection skipped (using local store): {e}")
+        print(f"[Utility Bot Storage] MongoDB connection fallback to local JSON store: {e}")
 
 
 def read_history(auto_purge: bool = True) -> List[Dict[str, Any]]:
