@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   AlertTriangle, 
   XCircle, 
@@ -13,13 +13,27 @@ import {
   RotateCcw,
   ArrowRight,
   Truck,
-  Car
+  Car,
+  Edit2,
+  Check
 } from 'lucide-react';
 
 export default function ResultsView({ result, onUploadAnother }) {
   if (!result) return null;
 
   const { document_type, is_valid, short_circuited, is_duplicate_or_sample, authenticity_status, data, warnings, images } = result;
+
+  // Local editable state for human-in-the-loop editing
+  const [formData, setFormData] = useState(data || {});
+  const [editingField, setEditingField] = useState(null);
+
+  useEffect(() => {
+    setFormData(data || {});
+  }, [data]);
+
+  const handleFieldChange = (field, val) => {
+    setFormData(prev => ({ ...prev, [field]: val }));
+  };
 
   // Document Badge Colors for Light Theme
   const getBadge = () => {
@@ -235,13 +249,19 @@ export default function ResultsView({ result, onUploadAnother }) {
               {/* 1. AADHAAR FRONT FIELDS */}
               {document_type === 'aadhaar' && (
                 <>
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm group">
                     <div className="p-2 rounded-lg bg-sky-100 text-sky-700 flex-shrink-0">
                       <User className="w-4 h-4" />
                     </div>
                     <div className="flex-1 overflow-hidden">
                       <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Applicant Name</span>
-                      <span className="text-sm font-bold text-slate-900 block truncate">{data?.name || 'Not Detected'}</span>
+                      <input
+                        type="text"
+                        value={formData?.name || ''}
+                        onChange={(e) => handleFieldChange('name', e.target.value)}
+                        placeholder="Applicant Name"
+                        className="w-full text-sm font-bold text-slate-900 bg-transparent border-b border-dashed border-transparent hover:border-slate-300 focus:border-sky-500 focus:bg-white px-1 py-0.5 rounded focus:outline-none transition"
+                      />
                     </div>
                   </div>
 
@@ -251,7 +271,13 @@ export default function ResultsView({ result, onUploadAnother }) {
                     </div>
                     <div className="flex-1 overflow-hidden">
                       <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Aadhaar Number (Masked)</span>
-                      <span className="text-sm font-bold text-sky-700 font-mono block">{data?.aadhaar_number || 'Not Detected'}</span>
+                      <input
+                        type="text"
+                        value={formData?.aadhaar_number || ''}
+                        onChange={(e) => handleFieldChange('aadhaar_number', e.target.value)}
+                        placeholder="********1234"
+                        className="w-full text-sm font-bold text-sky-700 font-mono bg-transparent border-b border-dashed border-transparent hover:border-slate-300 focus:border-sky-500 focus:bg-white px-1 py-0.5 rounded focus:outline-none transition"
+                      />
                     </div>
                   </div>
 
@@ -261,7 +287,13 @@ export default function ResultsView({ result, onUploadAnother }) {
                     </div>
                     <div className="flex-1 overflow-hidden">
                       <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Date of Birth</span>
-                      <span className="text-sm font-bold text-slate-900 block">{data?.date_of_birth || data?.year_of_birth || 'Not Detected'}</span>
+                      <input
+                        type="text"
+                        value={formData?.date_of_birth || formData?.year_of_birth || ''}
+                        onChange={(e) => handleFieldChange('date_of_birth', e.target.value)}
+                        placeholder="YYYY-MM-DD"
+                        className="w-full text-sm font-bold text-slate-900 bg-transparent border-b border-dashed border-transparent hover:border-slate-300 focus:border-emerald-500 focus:bg-white px-1 py-0.5 rounded focus:outline-none transition"
+                      />
                     </div>
                   </div>
 
@@ -271,7 +303,13 @@ export default function ResultsView({ result, onUploadAnother }) {
                     </div>
                     <div className="flex-1 overflow-hidden">
                       <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Gender</span>
-                      <span className="text-sm font-bold text-slate-900 block">{data?.gender || 'Not Detected'}</span>
+                      <input
+                        type="text"
+                        value={formData?.gender || ''}
+                        onChange={(e) => handleFieldChange('gender', e.target.value)}
+                        placeholder="Male / Female"
+                        className="w-full text-sm font-bold text-slate-900 bg-transparent border-b border-dashed border-transparent hover:border-slate-300 focus:border-purple-500 focus:bg-white px-1 py-0.5 rounded focus:outline-none transition"
+                      />
                     </div>
                   </div>
                 </>
@@ -286,7 +324,13 @@ export default function ResultsView({ result, onUploadAnother }) {
                     </div>
                     <div className="flex-1 overflow-hidden">
                       <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Guardian / Spouse (C/O)</span>
-                      <span className="text-sm font-bold text-slate-900 block truncate">{data?.care_of || 'Not Detected'}</span>
+                      <input
+                        type="text"
+                        value={formData?.care_of || ''}
+                        onChange={(e) => handleFieldChange('care_of', e.target.value)}
+                        placeholder="Father / Husband Name"
+                        className="w-full text-sm font-bold text-slate-900 bg-transparent border-b border-dashed border-transparent hover:border-slate-300 focus:border-purple-500 focus:bg-white px-1 py-0.5 rounded focus:outline-none transition"
+                      />
                     </div>
                   </div>
 
@@ -296,7 +340,13 @@ export default function ResultsView({ result, onUploadAnother }) {
                     </div>
                     <div className="flex-1 overflow-hidden">
                       <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Postal Pincode</span>
-                      <span className="text-sm font-bold text-sky-700 font-mono block">{data?.pincode || 'Not Detected'}</span>
+                      <input
+                        type="text"
+                        value={formData?.pincode || ''}
+                        onChange={(e) => handleFieldChange('pincode', e.target.value)}
+                        placeholder="6-digit PIN"
+                        className="w-full text-sm font-bold text-sky-700 font-mono bg-transparent border-b border-dashed border-transparent hover:border-slate-300 focus:border-sky-500 focus:bg-white px-1 py-0.5 rounded focus:outline-none transition"
+                      />
                     </div>
                   </div>
 
@@ -306,9 +356,13 @@ export default function ResultsView({ result, onUploadAnother }) {
                     </div>
                     <div className="flex-1">
                       <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Full Residential Address</span>
-                      <p className="text-xs text-slate-800 mt-1 leading-relaxed font-medium">
-                        {data?.address || 'Address text could not be isolated from scan.'}
-                      </p>
+                      <textarea
+                        rows={2}
+                        value={formData?.address || ''}
+                        onChange={(e) => handleFieldChange('address', e.target.value)}
+                        placeholder="Full Residential Address"
+                        className="w-full text-xs text-slate-800 font-medium bg-transparent border-b border-dashed border-transparent hover:border-slate-300 focus:border-sky-500 focus:bg-white px-1 py-1 rounded focus:outline-none transition mt-1"
+                      />
                     </div>
                   </div>
                 </>
@@ -323,7 +377,13 @@ export default function ResultsView({ result, onUploadAnother }) {
                     </div>
                     <div className="flex-1 overflow-hidden">
                       <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Cardholder Name</span>
-                      <span className="text-sm font-bold text-slate-900 block truncate">{data?.name || 'Not Detected'}</span>
+                      <input
+                        type="text"
+                        value={formData?.name || ''}
+                        onChange={(e) => handleFieldChange('name', e.target.value)}
+                        placeholder="Cardholder Name"
+                        className="w-full text-sm font-bold text-slate-900 bg-transparent border-b border-dashed border-transparent hover:border-slate-300 focus:border-sky-500 focus:bg-white px-1 py-0.5 rounded focus:outline-none transition"
+                      />
                     </div>
                   </div>
 
@@ -333,17 +393,29 @@ export default function ResultsView({ result, onUploadAnother }) {
                     </div>
                     <div className="flex-1 overflow-hidden">
                       <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">PAN Number</span>
-                      <span className="text-sm font-bold text-sky-700 font-mono block">{data?.pan_number || 'Not Detected'}</span>
+                      <input
+                        type="text"
+                        value={formData?.pan_number || ''}
+                        onChange={(e) => handleFieldChange('pan_number', e.target.value.toUpperCase())}
+                        placeholder="ABCDE1234F"
+                        className="w-full text-sm font-bold text-sky-700 font-mono uppercase bg-transparent border-b border-dashed border-transparent hover:border-slate-300 focus:border-sky-500 focus:bg-white px-1 py-0.5 rounded focus:outline-none transition"
+                      />
                     </div>
                   </div>
 
                   <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
-                    <div className="p-2 rounded-lg bg-amber-100 text-amber-800 flex-shrink-0">
+                    <div className="p-2 rounded-lg bg-amber-100 text-amber-700 flex-shrink-0">
                       <User className="w-4 h-4" />
                     </div>
                     <div className="flex-1 overflow-hidden">
                       <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Father's Name</span>
-                      <span className="text-sm font-bold text-slate-900 block truncate">{data?.father_name || 'Not Detected'}</span>
+                      <input
+                        type="text"
+                        value={formData?.father_name || ''}
+                        onChange={(e) => handleFieldChange('father_name', e.target.value)}
+                        placeholder="Father's Name"
+                        className="w-full text-sm font-bold text-slate-900 bg-transparent border-b border-dashed border-transparent hover:border-slate-300 focus:border-amber-500 focus:bg-white px-1 py-0.5 rounded focus:outline-none transition"
+                      />
                     </div>
                   </div>
 
@@ -353,52 +425,82 @@ export default function ResultsView({ result, onUploadAnother }) {
                     </div>
                     <div className="flex-1 overflow-hidden">
                       <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Date of Birth</span>
-                      <span className="text-sm font-bold text-slate-900 block">{data?.date_of_birth || 'Not Detected'}</span>
+                      <input
+                        type="text"
+                        value={formData?.date_of_birth || ''}
+                        onChange={(e) => handleFieldChange('date_of_birth', e.target.value)}
+                        placeholder="YYYY-MM-DD"
+                        className="w-full text-sm font-bold text-slate-900 bg-transparent border-b border-dashed border-transparent hover:border-slate-300 focus:border-emerald-500 focus:bg-white px-1 py-0.5 rounded focus:outline-none transition"
+                      />
                     </div>
                   </div>
                 </>
               )}
 
-              {/* 4. DRIVING LICENCE FRONT */}
+              {/* 4. DRIVING LICENCE FRONT FIELDS */}
               {document_type === 'driving_licence' && (
                 <>
                   <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
-                    <div className="p-2 rounded-lg bg-sky-100 text-sky-700 flex-shrink-0">
+                    <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700 flex-shrink-0">
                       <User className="w-4 h-4" />
                     </div>
                     <div className="flex-1 overflow-hidden">
-                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Licence Holder</span>
-                      <span className="text-sm font-bold text-slate-900 block truncate">{data?.name || 'Not Detected'}</span>
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Licence Holder Name</span>
+                      <input
+                        type="text"
+                        value={formData?.name || ''}
+                        onChange={(e) => handleFieldChange('name', e.target.value)}
+                        placeholder="Licence Holder Name"
+                        className="w-full text-sm font-bold text-slate-900 bg-transparent border-b border-dashed border-transparent hover:border-slate-300 focus:border-emerald-500 focus:bg-white px-1 py-0.5 rounded focus:outline-none transition"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
+                    <div className="p-2 rounded-lg bg-sky-100 text-sky-700 flex-shrink-0">
+                      <Hash className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Licence Number</span>
+                      <input
+                        type="text"
+                        value={formData?.dl_number || ''}
+                        onChange={(e) => handleFieldChange('dl_number', e.target.value.toUpperCase())}
+                        placeholder="DL Number"
+                        className="w-full text-sm font-bold text-sky-700 font-mono uppercase bg-transparent border-b border-dashed border-transparent hover:border-slate-300 focus:border-sky-500 focus:bg-white px-1 py-0.5 rounded focus:outline-none transition"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
+                    <div className="p-2 rounded-lg bg-amber-100 text-amber-700 flex-shrink-0">
+                      <Calendar className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Date of Birth</span>
+                      <input
+                        type="text"
+                        value={formData?.date_of_birth || ''}
+                        onChange={(e) => handleFieldChange('date_of_birth', e.target.value)}
+                        placeholder="YYYY-MM-DD"
+                        className="w-full text-sm font-bold text-slate-900 bg-transparent border-b border-dashed border-transparent hover:border-slate-300 focus:border-amber-500 focus:bg-white px-1 py-0.5 rounded focus:outline-none transition"
+                      />
                     </div>
                   </div>
 
                   <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
                     <div className="p-2 rounded-lg bg-indigo-100 text-indigo-700 flex-shrink-0">
-                      <Hash className="w-4 h-4" />
+                      <Clock className="w-4 h-4" />
                     </div>
                     <div className="flex-1 overflow-hidden">
-                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">DL Number</span>
-                      <span className="text-sm font-bold text-sky-700 font-mono block">{data?.dl_number || 'Not Detected'}</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
-                    <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700 flex-shrink-0">
-                      <Calendar className="w-4 h-4" />
-                    </div>
-                    <div className="flex-1 overflow-hidden">
-                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Date of Birth</span>
-                      <span className="text-sm font-bold text-slate-900 block">{data?.date_of_birth || 'Not Detected'}</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm">
-                    <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700 flex-shrink-0">
-                      <Calendar className="w-4 h-4" />
-                    </div>
-                    <div className="flex-1 overflow-hidden">
-                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Validity Date</span>
-                      <span className="text-sm font-bold text-slate-900 block">{data?.valid_until || 'Not Detected'}</span>
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Valid Until</span>
+                      <input
+                        type="text"
+                        value={formData?.valid_until || ''}
+                        onChange={(e) => handleFieldChange('valid_until', e.target.value)}
+                        placeholder="YYYY-MM-DD"
+                        className="w-full text-sm font-bold text-slate-900 bg-transparent border-b border-dashed border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white px-1 py-0.5 rounded focus:outline-none transition"
+                      />
                     </div>
                   </div>
                 </>
