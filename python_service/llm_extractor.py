@@ -70,9 +70,10 @@ CRITICAL PAN CARD LAYOUT RULES:
 - Line 1 Label: "नाम / Name"
 - Line 2 Value: Cardholder Name (e.g., "S KIRUTHIKEYAN")
 - Line 3 Label: "पिता का नाम / Father's Name"
-- Line 4 Value: Father's Name (e.g., "SEVUGAPERUMAL"). The Father's Name is ALWAYS the English name printed on the line DIRECTLY BELOW "Father's Name".
-- NEVER extract Hindi label words like "नाम", "पिता का नाम", "राम", "Pita", "Ka", "Nam", or "Name" as the Father's Name!
-- Line 5: Date of Birth in DD/MM/YYYY format.
+- Line 4 Value: Father's Name (e.g., "SEVUGAPERUMAL"). The Father's Name is ALWAYS the real Indian person's name printed in capital letters directly below "Father's Name".
+- ANTI-HALLUCINATION: NEVER output corrupted OCR artifacts or Hindi misreads such as "STRAEEX", "TAA", "wu at", "met", "hastakshar", "shri", "minor", "sign", "income", "tax", "dept", "govt".
+- If the father name cannot be clearly read as a real English name, search the nearby lines for the actual printed name (e.g. SEVUGAPERUMAL) or return null.
+- Line 5: Date of Birth in DD/MM/YYYY format (e.g. "18/11/2004"). Do not confuse '8' with '6'.
 {
   "document_type": "pan",
   "name": "<Full Name of cardholder>",

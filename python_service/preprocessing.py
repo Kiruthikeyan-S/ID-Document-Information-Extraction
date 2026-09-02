@@ -103,12 +103,21 @@ def apply_threshold(image: np.ndarray, method: str = "otsu") -> np.ndarray:
         return thresh
 
 
+def sharpen_text(image: np.ndarray) -> np.ndarray:
+    """Applies unsharp masking to sharpen text characters on low-contrast cards."""
+    gray = to_grayscale(image)
+    gaussian = cv2.GaussianBlur(gray, (0, 0), 2.0)
+    unsharp = cv2.addWeighted(gray, 1.6, gaussian, -0.6, 0)
+    return unsharp
+
+
 def preprocess_id_card(
     image: np.ndarray,
     enable_resize: bool = True,
     enable_clahe: bool = True,
     enable_denoise: bool = True,
     enable_glare_reduction: bool = True,
+    enable_sharpen: bool = True,
     enable_threshold: bool = False,
     threshold_method: str = "otsu"
 ) -> np.ndarray:
@@ -131,13 +140,17 @@ def preprocess_id_card(
 
     # Step 4: Contrast Enhancement (CLAHE)
     if enable_clahe:
-        processed = enhance_contrast(processed, clip_limit=2.0)
+        processed = enhance_contrast(processed, clip_limit=2.5)
 
-    # Step 5: Noise & Texture Smoothing (Bilateral Filter)
+    # Step 5: Unsharp Mask Sharpening
+    if enable_sharpen:
+        processed = sharpen_text(processed)
+
+    # Step 6: Noise & Texture Smoothing (Bilateral Filter)
     if enable_denoise:
         processed = remove_noise(processed)
 
-    # Step 6: Optional Binarization / Thresholding
+    # Step 7: Optional Binarization / Thresholding
     if enable_threshold:
         processed = apply_threshold(processed, method=threshold_method)
 
