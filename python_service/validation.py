@@ -167,7 +167,7 @@ def validate_pan(pan_raw: Optional[str]) -> Tuple[Optional[str], List[str]]:
 
 
 def validate_driving_licence(dl_raw: Optional[str]) -> Tuple[Optional[str], List[str]]:
-    """Validates Driving Licence format across Indian states."""
+    """Validates Driving Licence format across Indian states with common OCR typo corrections."""
     warnings = []
     if not dl_raw:
         return None, ["Driving Licence number is missing."]
@@ -175,15 +175,32 @@ def validate_driving_licence(dl_raw: Optional[str]) -> Tuple[Optional[str], List
     cleaned = dl_raw.strip().upper().replace("-", " ").replace("/", " ")
     cleaned_no_space = cleaned.replace(" ", "")
 
+    # Common OCR typo corrections for Indian State Codes
+    ocr_state_fixes = {
+        "N7": "TN", "7N": "TN", "TM": "TN", "IN": "TN",
+        "D1": "DL", "DI": "DL", "OL": "DL",
+        "K4": "KA", "KH": "KA",
+        "M1": "MH", "M#": "MH", "PH": "MH",
+        "U9": "UP", "VR": "UP",
+        "A9": "AP", "AB": "AP",
+        "G1": "GJ", "6J": "GJ"
+    }
+    
+    prefix = cleaned_no_space[:2]
+    if prefix in ocr_state_fixes:
+        corrected_prefix = ocr_state_fixes[prefix]
+        cleaned_no_space = corrected_prefix + cleaned_no_space[2:]
+        dl_raw = corrected_prefix + " " + dl_raw[2:].strip()
+        prefix = corrected_prefix
+
     state_codes = [
         "AN", "AP", "AR", "AS", "BR", "CH", "CG", "DD", "DL", "DN", "GA", "GJ",
         "HR", "HP", "JH", "JK", "KA", "KL", "LA", "LD", "MH", "ML", "MN", "MP",
         "MZ", "NL", "OD", "PB", "PY", "RJ", "SK", "TN", "TR", "TS", "UK", "UP", "WB"
     ]
 
-    prefix = cleaned_no_space[:2]
     if prefix not in state_codes:
-        warnings.append(f"Driving licence state code '{prefix}' may be invalid.")
+        warnings.append(f"Driving licence state code '{prefix}' may be non-standard.")
 
     if not (10 <= len(cleaned_no_space) <= 20):
         warnings.append(f"Driving licence length ({len(cleaned_no_space)}) is unusual.")
@@ -334,24 +351,38 @@ def validate_and_clean_extraction(
         name = clean_name(raw_data.get("name"))
         father_name = clean_name(raw_data.get("father_name"))
 
-        # Sanity check: prevent hallucination of Hindi label ("Ram", "Nam", "Pita", etc.)
-        invalid_father_names = {"ram", "nam", "naam", "pita", "father", "fathers", "name", "pita ka naam", "shri", "mr"}
-        if (not father_name or father_name.lower() in invalid_father_names) and raw_ocr_text:
+        # Robust blacklist for junk tokens & Hindi label confusion
+        invalid_father_names = {
+            "ram", "nam", "naam", "pita", "father", "fathers", "name", 
+            "pita ka naam", "shri", "mr", "met", "minor", "sign", "signature", 
+            "govt", "income", "tax", "dept", "india", "permanent", "account", "card"
+        }
+        
+        # If father_name is missing or invalid junk, scan OCR lines directly
+        if (not father_name or father_name.lower() in invalid_father_names or len(father_name) < 3) and raw_ocr_text:
             lines = [l.strip() for l in raw_ocr_text.splitlines() if l.strip()]
             for idx, line in enumerate(lines):
                 if re.search(r"father|पिता", line, re.IGNORECASE):
                     for next_idx in range(idx + 1, min(idx + 4, len(lines))):
                         candidate = lines[next_idx]
-                        if not re.search(r"\d{2}[/-]\d{2}[/-]\d{4}|\b[A-Z]{5}\d{4}[A-Z]\b|income|tax|dept|govt|india|permanent|account", candidate, re.IGNORECASE):
+                        if not re.search(r"\d{2}[/-]\d{2}[/-]\d{4}|\b[A-Z]{5}\d{4}[A-Z]\b|income|tax|dept|govt|india|permanent|account|minor|sign", candidate, re.IGNORECASE):
                             cleaned_cand = clean_name(candidate)
-                            if cleaned_cand and len(cleaned_cand) > 2 and cleaned_cand.lower() not in invalid_father_names:
+                            if cleaned_cand and len(cleaned_cand) >= 3 and cleaned_cand.lower() not in invalid_father_names:
                                 father_name = cleaned_cand
                                 break
                     if father_name and father_name.lower() not in invalid_father_names:
                         break
 
+        # Check raw OCR text for exact DOB if LLM misread digits
         dob, dob_warn = normalize_date(raw_data.get("date_of_birth"))
-        if dob_warn:
+        if raw_ocr_text:
+            dob_matches = re.findall(r"\b(\d{2}[/-]\d{2}[/-]\d{4})\b", raw_ocr_text)
+            if dob_matches:
+                ocr_dob, _ = normalize_date(dob_matches[0])
+                if ocr_dob:
+                    dob = ocr_dob
+
+        if dob_warn and not dob:
             warnings.append(dob_warn)
 
         pan_num, pan_warn = validate_pan(raw_pan)
