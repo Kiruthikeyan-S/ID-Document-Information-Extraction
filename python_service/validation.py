@@ -351,27 +351,50 @@ def validate_and_clean_extraction(
         name = clean_name(raw_data.get("name"))
         father_name = clean_name(raw_data.get("father_name"))
 
-        # Robust blacklist for junk tokens & Hindi label confusion
-        invalid_father_names = {
-            "ram", "nam", "naam", "pita", "father", "fathers", "name", 
-            "pita ka naam", "shri", "mr", "met", "minor", "sign", "signature", 
-            "govt", "income", "tax", "dept", "india", "permanent", "account", "card"
-        }
-        
-        # If father_name is missing or invalid junk, scan OCR lines directly
-        if (not father_name or father_name.lower() in invalid_father_names or len(father_name) < 3) and raw_ocr_text:
+        # Function to test if a string is a genuine valid person name (not OCR noise like 'wu at')
+        def is_valid_name_token(n_str: Optional[str]) -> bool:
+            if not n_str or len(n_str.strip()) < 3:
+                return False
+            n_clean = n_str.strip()
+            # Reject lowercase junk or 2-letter noise words like 'wu at', 'met', 'to', 'in'
+            tokens = n_clean.split()
+            if any(len(t) < 3 and not t.isupper() for t in tokens):
+                return False
+            # Check noise blacklist
+            blacklist = {
+                "ram", "nam", "naam", "pita", "father", "fathers", "name", 
+                "pita ka naam", "shri", "mr", "met", "minor", "sign", "signature", 
+                "govt", "income", "tax", "dept", "india", "permanent", "account", 
+                "card", "wu at", "wu", "at", "date", "birth", "hastakshar"
+            }
+            if n_clean.lower() in blacklist or any(t.lower() in blacklist for t in tokens):
+                return False
+            return True
+
+        if not is_valid_name_token(father_name) and raw_ocr_text:
+            # Deterministic scan in raw OCR text for all-uppercase person name lines
             lines = [l.strip() for l in raw_ocr_text.splitlines() if l.strip()]
             for idx, line in enumerate(lines):
-                if re.search(r"father|पिता", line, re.IGNORECASE):
-                    for next_idx in range(idx + 1, min(idx + 4, len(lines))):
-                        candidate = lines[next_idx]
-                        if not re.search(r"\d{2}[/-]\d{2}[/-]\d{4}|\b[A-Z]{5}\d{4}[A-Z]\b|income|tax|dept|govt|india|permanent|account|minor|sign", candidate, re.IGNORECASE):
+                if re.search(r"father|पिता|name", line, re.IGNORECASE):
+                    for next_idx in range(idx + 1, min(idx + 5, len(lines))):
+                        candidate = lines[next_idx].strip()
+                        # Must not be a date, PAN number, or header keyword
+                        if not re.search(r"\d{2}[/-]\d{2}[/-]\d{4}|\b[A-Z]{5}\d{4}[A-Z]\b|income|tax|dept|govt|india|permanent|account|minor|sign|birth|date|signature", candidate, re.IGNORECASE):
                             cleaned_cand = clean_name(candidate)
-                            if cleaned_cand and len(cleaned_cand) >= 3 and cleaned_cand.lower() not in invalid_father_names:
-                                father_name = cleaned_cand
+                            if is_valid_name_token(cleaned_cand) and cleaned_cand != name:
+                                father_name = cleaned_cand.upper()
                                 break
-                    if father_name and father_name.lower() not in invalid_father_names:
+                    if is_valid_name_token(father_name):
                         break
+
+            # Fallback: scan all lines for any pure uppercase name string (e.g. SEVUGAPERUMAL)
+            if not is_valid_name_token(father_name):
+                for line in lines:
+                    cleaned_line = clean_name(line)
+                    if cleaned_line and is_valid_name_token(cleaned_line) and cleaned_line != name:
+                        if not re.search(r"INCOME|TAX|GOVT|INDIA|PERMANENT|ACCOUNT|FATHER|SIGNATURE|MINOR", cleaned_line.upper()):
+                            father_name = cleaned_line.upper()
+                            break
 
         # Check raw OCR text for exact DOB if LLM misread digits
         dob, dob_warn = normalize_date(raw_data.get("date_of_birth"))
