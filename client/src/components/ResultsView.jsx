@@ -632,60 +632,79 @@ export default function ResultsView({
               
               {/* STATE 1: PENDING USER CONFIRMATION (Initial View: ✓ Correct / ✗ Wrong) */}
               {confirmationState === 'pending' && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200 shadow-sm">
-                  <div className="text-xs text-slate-600 flex items-center space-x-2">
-                    <Edit2 className="w-4 h-4 text-sky-600 flex-shrink-0" />
-                    <span>Please verify the extracted information above. Click <strong>✓ Correct</strong> to save to History or <strong>✗ Wrong</strong> to reject.</span>
+                <div className="p-5 rounded-2xl bg-gradient-to-r from-slate-50 to-sky-50/40 border border-slate-200 shadow-sm space-y-4">
+                  
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="space-y-1 max-w-xl">
+                      <div className="flex items-center space-x-2 text-slate-800 font-bold text-sm">
+                        <Edit2 className="w-4 h-4 text-sky-600" />
+                        <span>Step 2: Confirm Extracted Information</span>
+                      </div>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        Please review all fields above. You can click and edit any field directly. 
+                        Click <strong>✓ Correct</strong> to save as a verified record in History, or <strong>✗ Wrong</strong> to reject.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3 w-full md:w-auto flex-wrap sm:flex-nowrap">
+                      {/* Button 1: ✓ Correct */}
+                      <button
+                        type="button"
+                        onClick={handleCorrectClick}
+                        disabled={isSaving}
+                        className="flex-1 sm:flex-initial min-w-[130px] px-6 py-3 rounded-xl font-bold text-sm bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white shadow-lg shadow-emerald-600/25 active:scale-95 transition-all duration-150 flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
+                      >
+                        <Check className="w-4 h-4 stroke-[3]" />
+                        <span>{isSaving ? 'Saving...' : '✓ Correct'}</span>
+                      </button>
+
+                      {/* Button 2: ✗ Wrong */}
+                      <button
+                        type="button"
+                        onClick={handleWrongClick}
+                        disabled={isSaving}
+                        className="flex-1 sm:flex-initial min-w-[130px] px-6 py-3 rounded-xl font-bold text-sm bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white shadow-lg shadow-rose-600/25 active:scale-95 transition-all duration-150 flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
+                      >
+                        <XCircle className="w-4 h-4 stroke-[2.5]" />
+                        <span>✗ Wrong</span>
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="flex items-center space-x-3 w-full sm:w-auto flex-shrink-0">
-                    {/* Button 1: ✓ Correct */}
-                    <button
-                      onClick={handleCorrectClick}
-                      disabled={isSaving}
-                      className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/20 active:scale-95 transition flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
-                    >
-                      <Check className="w-4 h-4" />
-                      <span>{isSaving ? 'Saving...' : '✓ Correct'}</span>
-                    </button>
-
-                    {/* Button 2: ✗ Wrong */}
-                    <button
-                      onClick={handleWrongClick}
-                      disabled={isSaving}
-                      className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl font-bold text-xs bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-600/20 active:scale-95 transition flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
-                    >
-                      <XCircle className="w-4 h-4" />
-                      <span>✗ Wrong</span>
-                    </button>
-                  </div>
                 </div>
               )}
 
               {/* STATE 2: USER CLICKED "✓ Correct" */}
               {confirmationState === 'correct' && (
-                <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 rounded-lg bg-emerald-600 text-white flex-shrink-0">
-                        <Check className="w-5 h-5" />
+                <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-950 shadow-sm space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-start space-x-3">
+                      <div className="p-2.5 rounded-xl bg-emerald-600 text-white flex-shrink-0 shadow-md shadow-emerald-600/30">
+                        <Check className="w-6 h-6 stroke-[3]" />
                       </div>
                       <div>
-                        <h4 className="text-sm font-bold text-emerald-950">Record Confirmed & Saved!</h4>
-                        <p className="text-xs text-emerald-700">
-                          Saved to database as <strong className="font-mono">{displayId}</strong> on {displayDate} at {displayTime}.
+                        <div className="flex items-center space-x-2">
+                          <h4 className="text-base font-bold text-emerald-950">Record Confirmed & Saved!</h4>
+                          <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-200 text-emerald-900 border border-emerald-300">
+                            {displayId}
+                          </span>
+                        </div>
+                        <p className="text-xs text-emerald-800 mt-1">
+                          Successfully verified and saved to database on <strong>{displayDate}</strong> at <strong>{displayTime}</strong>.
                         </p>
                       </div>
                     </div>
-                    <span className="text-xs font-bold px-3 py-1 bg-emerald-200 text-emerald-800 rounded-full self-start sm:self-auto flex-shrink-0">
+
+                    <span className="text-xs font-bold px-3.5 py-1.5 bg-emerald-600 text-white rounded-xl shadow-sm self-start sm:self-auto flex-shrink-0">
                       ✓ Stored in History
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-end space-x-3">
+                  <div className="flex items-center justify-end pt-2 border-t border-emerald-200/60">
                     <button
+                      type="button"
                       onClick={onUploadNew || onReupload || onUploadAnother}
-                      className="px-5 py-2.5 rounded-xl font-bold text-xs bg-sky-600 hover:bg-sky-500 text-white shadow-md transition flex items-center space-x-2 cursor-pointer active:scale-95"
+                      className="px-6 py-2.5 rounded-xl font-bold text-xs bg-sky-600 hover:bg-sky-500 text-white shadow-md shadow-sky-600/20 transition flex items-center space-x-2 cursor-pointer active:scale-95"
                     >
                       <ImageIcon className="w-4 h-4" />
                       <span>Upload Next Document</span>
@@ -697,45 +716,60 @@ export default function ResultsView({
 
               {/* STATE 3: USER CLICKED "✗ Wrong" */}
               {confirmationState === 'wrong' && (
-                <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <div className="p-4 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 rounded-lg bg-rose-600 text-white flex-shrink-0">
-                        <XCircle className="w-5 h-5" />
+                <div className="p-5 rounded-2xl bg-rose-50 border border-rose-300 text-rose-950 shadow-sm space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                  
+                  {/* Failure Notice */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-start space-x-3">
+                      <div className="p-2.5 rounded-xl bg-rose-600 text-white flex-shrink-0 shadow-md shadow-rose-600/30">
+                        <XCircle className="w-6 h-6 stroke-[2.5]" />
                       </div>
                       <div>
-                        <h4 className="text-sm font-bold text-rose-950">Marked as Wrong / Inaccurate</h4>
-                        <p className="text-xs text-rose-700">
-                          Logged internally as <strong className="font-mono">{displayId}</strong>. This failed record is <strong>NOT shown on the History page</strong>.
+                        <div className="flex items-center space-x-2">
+                          <h4 className="text-base font-bold text-rose-950">Extraction Marked as Inaccurate</h4>
+                          <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-rose-200 text-rose-900 border border-rose-300">
+                            {displayId}
+                          </span>
+                        </div>
+                        <p className="text-xs text-rose-800 mt-1">
+                          Logged internally for system auditing on {displayDate} at {displayTime}. This record is <strong>NOT shown on the public History page</strong>.
                         </p>
                       </div>
                     </div>
-                    <span className="text-xs font-bold px-3 py-1 bg-rose-200 text-rose-800 rounded-full self-start sm:self-auto flex-shrink-0">
+
+                    <span className="text-xs font-bold px-3.5 py-1.5 bg-rose-600 text-white rounded-xl shadow-sm self-start sm:self-auto flex-shrink-0">
                       Internal Audit Only
                     </span>
                   </div>
 
-                  {/* 2 Required Options after clicking Wrong: Retry and Upload New Image */}
-                  <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-2">
-                    {/* Option 1: Retry */}
-                    <button
-                      onClick={onRetry}
-                      className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-xs bg-slate-800 hover:bg-slate-700 text-white shadow-md transition flex items-center justify-center space-x-2 cursor-pointer active:scale-95"
-                    >
-                      <RotateCcw className="w-4 h-4 text-slate-300" />
-                      <span>Retry</span>
-                    </button>
+                  {/* The 2 Clear Next Action Buttons: Retry and Upload New Image */}
+                  <div className="pt-3 border-t border-rose-200/60 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <span className="text-xs text-rose-800 font-medium">What would you like to do next?</span>
 
-                    {/* Option 2: Upload New Image */}
-                    <button
-                      onClick={onUploadNew || onReupload || onUploadAnother}
-                      className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-xs bg-sky-600 hover:bg-sky-500 text-white shadow-md transition flex items-center justify-center space-x-2 cursor-pointer active:scale-95"
-                    >
-                      <ImageIcon className="w-4 h-4" />
-                      <span>Upload New Image</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                      {/* Button 1: Retry */}
+                      <button
+                        type="button"
+                        onClick={onRetry}
+                        className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl font-bold text-xs bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-white shadow-md transition flex items-center justify-center space-x-2 cursor-pointer active:scale-95"
+                      >
+                        <RotateCcw className="w-4 h-4 text-slate-300" />
+                        <span>Retry</span>
+                      </button>
+
+                      {/* Button 2: Upload New Image */}
+                      <button
+                        type="button"
+                        onClick={onUploadNew || onReupload || onUploadAnother}
+                        className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl font-bold text-xs bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white shadow-md shadow-sky-600/20 transition flex items-center justify-center space-x-2 cursor-pointer active:scale-95"
+                      >
+                        <ImageIcon className="w-4 h-4" />
+                        <span>Upload New Image</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
+
                 </div>
               )}
 
