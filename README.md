@@ -11,7 +11,59 @@
 
 ---
 
+## 🗂️ Component Diagram (4-Component System)
+
+> **Y** = You (User / Frontend Action) &nbsp;&nbsp;|&nbsp;&nbsp; **O** = Other (System / AI Auto-Process)
+> 
+> **Total Components → 4 [FE, BE, Ex.AI, DB]**
+
+```
+┌──────────────────────────┐   ┌───────────────────────────────────────┐   ┌─────────────────┐   ┌───────────────────────┐
+│  FE  (Frontend)          │   │  BE  (Backend / FastAPI)              │   │  Ex.AI  (Groq)  │   │  DB  (Database)       │
+├──────────────────────────┤   ├───────────────────────────────────────┤   ├─────────────────┤   ├───────────────────────┤
+│                          │   │                                       │   │                 │   │                       │
+│  ① Image Upload    [Y]   │──▶│  ③ Receive HTTP multipart/form-data  │   │                 │   │                       │
+│                          │   │                                       │   │                 │   │                       │
+│  ② MIME Check      [Y]   │   │  ⑤ Image Preprocessor          [O]  │──▶│  ⑦ Groq LPU [O]│   │                       │
+│     image/jpeg,png,webp  │   │     OpenCV: Glare Removal            │   │     Llama 3.3   │   │                       │
+│                          │   │     Denoise · CLAHE · Binarize       │   │     70B · JSON  │   │                       │
+│                          │   │                                       │   │                 │   │                       │
+│                          │   │  ⑥ OCR Engine (Tesseract)      [O]  │──▶│     600 tok/s   │   │                       │
+│                          │   │     Spatial Word Map                  │   │     schema out  │   │                       │
+│                          │   │     2D Bounding Boxes                 │   │                 │   │                       │
+│                          │   │                                       │   │                 │   │                       │
+│  ⑧ Confirmation UI [Y]  │◀──│  ④ JSON Response               [Y]  │◀──│  ⑦ returns JSON │   │                       │
+│     ✓ Correct            │   │     Structured identity fields       │   │                 │   │                       │
+│     ✗ Wrong              │   │                                       │   │                 │   │                       │
+│                          │   │  ⑨ Logic: Store DB & LS       [Y]  │──▶│                 │──▶│  ⑩ Mongo Atlas  [Y]   │
+│                          │   │     On ✓ → IMG000001                 │   │                 │   │     verifications     │
+│                          │   │     On ✗ → FAIL000001                │   │                 │   │     failed_verif.     │
+│                          │   │                                       │   │                 │   │                       │
+│  ⑩ Success UI      [Y]  │◀──│  (Record confirmed & synced)         │   │                 │   │  ⑪ LS (Local Store)[Y]│
+│     IMG000001            │   │                                       │   │                 │   │     Device cache      │
+│     History Page         │   │                                       │   │                 │   │     instant read      │
+│                          │   │                                       │   │                 │   │                       │
+└──────────────────────────┘   └───────────────────────────────────────┘   └─────────────────┘   └───────────────────────┘
+```
+
+### 🔄 Retry Loops
+
+```
+  ① Retry Same Image [Y]  ──▶  Re-enters from Step ④ (JSON)  ──▶  Re-runs Vision + AI pipeline on same in-memory image
+  ② Upload New Image [Y]  ──▶  Resets to Step ① (Upload)     ──▶  Fresh Upload Zone — user picks a new / clearer file
+```
+
+### 📌 Numbered Flow Path (①→⑪)
+
+```
+  ① Upload  ──▶  ② MIME  ──▶  ③ HTTP Send  ──▶  ⑤ Preprocess  ──▶  ⑥ OCR  ──▶  ⑦ Groq AI  ──▶
+  ④ JSON  ──▶  ⑧ Confirm  ──▶  ⑨ Store DB  ──▶  ⑩ Mongo Atlas + ⑪ LS  ──▶  ⑩ Success UI
+```
+
+---
+
 ## 📊 End-to-End System Architecture & Multi-Entry Flow
+
 
 ```text
                         ┌─────────────────────────────────────────────────────────┐
