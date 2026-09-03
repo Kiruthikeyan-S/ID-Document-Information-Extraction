@@ -123,12 +123,22 @@ export const extractDocumentApi = async (file, settings = {}) => {
 };
 
 /**
- * Retrieves extraction history list for the active device.
+ * Retrieves extraction history list for the active device (Success IMG records).
  */
 export const getHistoryApi = async (params = {}) => {
   const queryParams = typeof params === 'object' ? params : { page: 1, limit: 50 };
   queryParams.deviceId = getDeviceId();
   const response = await api.get('/history', { params: queryParams });
+  return response.data;
+};
+
+/**
+ * Retrieves failed records from dedicated failed_verifications collection (FAIL records).
+ */
+export const getFailedHistoryApi = async (params = {}) => {
+  const queryParams = typeof params === 'object' ? params : { page: 1, limit: 50 };
+  queryParams.deviceId = getDeviceId();
+  const response = await api.get('/failed-history', { params: queryParams });
   return response.data;
 };
 

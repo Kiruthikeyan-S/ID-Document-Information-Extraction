@@ -27,6 +27,7 @@ from storage import (
     save_rejected_record, 
     confirm_or_update_extraction,
     get_history, 
+    get_failed_history,
     get_extraction_by_id, 
     delete_extraction_by_id, 
     get_storage_stats, 
@@ -82,6 +83,18 @@ def list_history(
     """Retrieves stored verification records with 30-day auto-retention filtered by Device ID."""
     active_device = x_device_id or deviceId
     return get_history(limit=limit, page=page, doc_type=type, device_id=active_device)
+
+
+@app.get("/failed-history")
+def list_failed_history(
+    limit: int = 50, 
+    page: int = 1, 
+    x_device_id: Optional[str] = Header(None, alias="X-Device-Id"),
+    deviceId: Optional[str] = Query(None)
+):
+    """Retrieves failed/rejected records stored in dedicated failed_verifications collection."""
+    active_device = x_device_id or deviceId
+    return get_failed_history(limit=limit, page=page, device_id=active_device)
 
 
 @app.get("/history/{doc_id}")

@@ -1,0 +1,20 @@
+[
+  {
+    "_id": "FAIL000001",
+    "failedId": "FAIL000001",
+    "deviceId": "default_client",
+    "documentType": "failed_upload",
+    "status": "Failed",
+    "isValid": false,
+    "error": "User rejected extraction (Marked as Wrong)",
+    "originalFileName": "blurry_card.jpg",
+    "image": null,
+    "thumbnail": null,
+    "date": "03-09-2026",
+    "time": "02:42 PM",
+    "rawOcrText": "",
+    "createdAt": "2026-09-03T09:12:02.073142Z",
+    "expiresAt": "2026-10-03T09:12:02.073142Z",
+    "retentionDays": 30
+  }
+]

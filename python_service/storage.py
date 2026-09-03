@@ -12,11 +12,16 @@ from typing import List, Dict, Any, Optional
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 HISTORY_FILE = os.path.join(DATA_DIR, "history.json")
+FAILED_HISTORY_FILE = os.path.join(DATA_DIR, "failed_history.json")
 RETENTION_DAYS = 30
 
 os.makedirs(DATA_DIR, exist_ok=True)
 if not os.path.exists(HISTORY_FILE):
     with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+        json.dump([], f)
+
+if not os.path.exists(FAILED_HISTORY_FILE):
+    with open(FAILED_HISTORY_FILE, "w", encoding="utf-8") as f:
         json.dump([], f)
 
 # MongoDB Configuration (Optional - Active if MONGODB_URI is provided)
@@ -184,6 +189,24 @@ def save_confirmed_record(
     return image_id
 
 
+def read_failed_history(auto_purge: bool = True) -> List[Dict[str, Any]]:
+    """Reads failed verification records stored for internal audit."""
+    try:
+        with open(FAILED_HISTORY_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        data = []
+    return data
+
+
+def write_failed_history(data: List[Dict[str, Any]]) -> None:
+    try:
+        with open(FAILED_HISTORY_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+    except Exception as e:
+        print(f"[Utility Bot Storage] Error writing failed history: {e}")
+
+
 def save_rejected_record(
     original_filename: str = "document.jpg",
     thumbnail_image: Optional[str] = None,
@@ -194,9 +217,10 @@ def save_rejected_record(
     """
     Saves rejected/failed record when user clicks '✗ Wrong'.
     Generates FAIL000001 ID, stores date and time.
-    Stored for internal use and compliance, but HIDDEN from user History page.
+    Stored in separate 'failed_verifications' MongoDB collection & failed_history.json.
+    HIDDEN from public History page.
     """
-    history = read_history(auto_purge=True)
+    failed_history = read_failed_history(auto_purge=True)
     failed_id = get_next_sequential_id("FAIL")
     
     now_local = datetime.now()
@@ -225,11 +249,13 @@ def save_rejected_record(
         "retentionDays": RETENTION_DAYS,
     }
     
-    history.insert(0, record)
-    if len(history) > 300:
-        history = history[:300]
-    write_history(history)
+    # 1. Store in local failed_history.json
+    failed_history.insert(0, record)
+    if len(failed_history) > 300:
+        failed_history = failed_history[:300]
+    write_failed_history(failed_history)
     
+    # 2. Store in dedicated separate MongoDB Atlas collection: failed_verifications
     if mongo_collection is not None:
         try:
             import pymongo
@@ -241,13 +267,33 @@ def save_rejected_record(
                 serverSelectionTimeoutMS=2000
             )
             sync_db = sync_client["utility_bot"]
-            sync_col = sync_db["verifications"]
+            sync_col = sync_db["failed_verifications"]  # DEDICATED SEPARATE COLLECTION IN MONGODB
             sync_col.replace_one({"_id": failed_id}, record, upsert=True)
-            print(f"[Utility Bot Storage] Synced failed record {failed_id} to MongoDB Atlas cloud!")
+            print(f"[Utility Bot Storage] Synced failed record {failed_id} to MongoDB Atlas collection 'failed_verifications'!")
         except Exception as err:
             print(f"[Utility Bot Storage] MongoDB sync notice for failure: {err}")
             
     return failed_id
+
+
+def get_failed_history(
+    limit: int = 50, 
+    page: int = 1, 
+    device_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """Retrieves separate failed audit records."""
+    history = read_failed_history(auto_purge=True)
+    if device_id and device_id != "admin_all":
+        history = [d for d in history if d.get("deviceId") == device_id]
+    total = len(history)
+    start = (page - 1) * limit
+    paginated = history[start:start + limit]
+    return {
+        "documents": paginated,
+        "total": total,
+        "page": page,
+        "collection": "failed_verifications"
+    }
 
 
 def confirm_or_update_extraction(
