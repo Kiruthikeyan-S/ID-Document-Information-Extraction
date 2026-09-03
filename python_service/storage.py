@@ -29,10 +29,11 @@ if MONGODB_URI:
     try:
         from motor.motor_asyncio import AsyncIOMotorClient
         import certifi
-        # Connect to MongoDB Atlas with secure SSL CA certificates
+        # Connect to MongoDB Atlas with secure SSL CA certificates and TLS fallback
         mongo_client = AsyncIOMotorClient(
             MONGODB_URI, 
             tlsCAFile=certifi.where(),
+            tlsAllowInvalidCertificates=True,
             serverSelectionTimeoutMS=3000
         )
         mongo_db = mongo_client.get_database("utility_bot")
@@ -136,6 +137,7 @@ def save_extraction(
             sync_client = pymongo.MongoClient(
                 MONGODB_URI, 
                 tlsCAFile=certifi.where(),
+                tlsAllowInvalidCertificates=True,
                 serverSelectionTimeoutMS=2000
             )
             sync_db = sync_client["utility_bot"]
