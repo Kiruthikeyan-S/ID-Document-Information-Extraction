@@ -77,14 +77,19 @@
                                  │                                                                       │
                                  ▼                                                                       ▼
                      [ Upload Next Document ]                                            ┌───────────────┴───────────────┐
-                                                                                         │ 1. 🔄 Retry Same Image        │
-                                                                                         │ 2. 📁 Upload New Image        │
-                                                                                         └───────────────────────────────┘
+                                 │                                                       │ 1. 🔄 Retry Same Image ───────┼─┐ (Re-runs AI Extraction)
+                                 ▼                                                       │                               │ │
+                       (Returns to Portal)                                               │ 2. 📁 Upload New Image ───────┼─┼─┐ (Upload New File)
+                                                                                         └───────────────────────────────┘ │ │
+                                                                                                                           │ │
+  ◄─────────────────────────── [ RE-RUN VISION & AI PIPELINE ON SAME IMAGE ] ──────────────────────────────────────────────┘ │
+  │                                                                                                                          │
+  ◄─────────────────────────── [ RESET TO DOCUMENT INTAKE PORTAL FOR NEW IMAGE ] ────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🗺️ Visual Mermaid Flowchart (Graphical Architecture)
+## 🗺️ Visual Mermaid Flowchart (Graphical Architecture with Retry Loop)
 
 ```mermaid
 flowchart TD
@@ -121,8 +126,11 @@ flowchart TD
         CHOICE -- "✗ Wrong" --> WRONG["Assign FAIL000001 (Status: Failed)"]
         WRONG --> DB2[("MongoDB: failed_verifications")]
         WRONG --> AUDIT["🔒 Hidden from History (Audit Log)"]
-        WRONG --> ACTIONS["Two Action Options: 1. 🔄 Retry | 2. 📁 Upload New"]
+        WRONG --> ACTIONS{"Action Options"}
     end
+
+    ACTIONS -->|"1. 🔄 Retry Same Image"| PREPROC
+    ACTIONS -->|"2. 📁 Upload New Image"| INTAKE
 
     classDef success fill:#dcfce7,stroke:#16a34a,stroke-width:2px;
     classDef fail fill:#fee2e2,stroke:#dc2626,stroke-width:2px;
@@ -130,7 +138,7 @@ flowchart TD
     classDef engine fill:#f3e8ff,stroke:#9333ea,stroke-width:2px;
 
     class CONFIRM,DB1,HIST success;
-    class WRONG,DB2,AUDIT,REJECT fail;
+    class WRONG,DB2,AUDIT,REJECT,ACTIONS fail;
     class A1,A2,A3,A4,UPLOAD intake;
     class CV1,OCR,LLM,NORM,MASK engine;
 ```
