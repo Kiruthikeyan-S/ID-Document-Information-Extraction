@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, Trash2, FileText, Search, RefreshCw, ChevronRight, Clock, HardDrive, Sparkles, AlertCircle, Image as ImageIcon, CheckCircle, XCircle } from 'lucide-react';
-import { getHistoryApi, getFailedHistoryApi, deleteHistoryApi, getStorageStatsApi, cleanStorageApi } from '../services/api';
+import { X, Trash2, FileText, Search, RefreshCw, ChevronRight, Clock, HardDrive, Sparkles, AlertCircle, Image as ImageIcon } from 'lucide-react';
+import { getHistoryApi, deleteHistoryApi, getStorageStatsApi, cleanStorageApi } from '../services/api';
 
 export default function HistoryDrawer({ isOpen, onClose, onSelectDocument }) {
   const [history, setHistory] = useState([]);
-  const [activeTab, setActiveTab] = useState('success'); // 'success' | 'failed'
   const [stats, setStats] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isCleaning, setIsCleaning] = useState(false);
@@ -14,17 +13,12 @@ export default function HistoryDrawer({ isOpen, onClose, onSelectDocument }) {
   const fetchHistoryAndStats = async () => {
     setIsLoading(true);
     try {
-      if (activeTab === 'failed') {
-        const failedData = await getFailedHistoryApi({ limit: 50 });
-        setHistory(failedData.documents || []);
-      } else {
-        const [historyData, statsData] = await Promise.all([
-          getHistoryApi({ limit: 50, type: typeFilter || undefined }),
-          getStorageStatsApi(),
-        ]);
-        setHistory(historyData.documents || []);
-        setStats(statsData);
-      }
+      const [historyData, statsData] = await Promise.all([
+        getHistoryApi({ limit: 50, type: typeFilter || undefined }),
+        getStorageStatsApi(),
+      ]);
+      setHistory(historyData.documents || []);
+      setStats(statsData);
     } catch (e) {
       console.error('Failed to fetch history:', e);
     } finally {
@@ -36,7 +30,7 @@ export default function HistoryDrawer({ isOpen, onClose, onSelectDocument }) {
     if (isOpen) {
       fetchHistoryAndStats();
     }
-  }, [isOpen, typeFilter, activeTab]);
+  }, [isOpen, typeFilter]);
 
   const handleDelete = async (e, id) => {
     e.stopPropagation();
@@ -153,42 +147,13 @@ export default function HistoryDrawer({ isOpen, onClose, onSelectDocument }) {
             </div>
           )}
 
-          {/* Category Toggle: Success (IMG...) vs Failed (FAIL...) */}
-          <div className="flex border-b border-slate-200 bg-slate-100/70 p-1.5 gap-1.5">
-            <button
-              type="button"
-              onClick={() => setActiveTab('success')}
-              className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 ${
-                activeTab === 'success'
-                  ? 'bg-white text-emerald-800 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Success Records (IMG)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('failed')}
-              className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 ${
-                activeTab === 'failed'
-                  ? 'bg-white text-rose-800 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <XCircle className="w-3.5 h-3.5 text-rose-600" />
-              <span>Failed Audit (FAIL)</span>
-            </button>
-          </div>
-
           {/* Search & Filters */}
           <div className="p-4 border-b border-slate-100 bg-white space-y-3">
             <div className="relative">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
               <input
                 type="text"
-                placeholder={activeTab === 'failed' ? "Search failed records..." : "Search by applicant name, ID number..."}
+                placeholder="Search by applicant name, ID number..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-sky-500"
@@ -257,30 +222,19 @@ export default function HistoryDrawer({ isOpen, onClose, onSelectDocument }) {
                   {/* Info */}
                   <div className="overflow-hidden flex-1">
                     <div className="flex items-center space-x-1.5 mb-1 flex-wrap gap-y-1">
-                      <span className={`text-[10px] font-bold font-mono px-1.5 py-0.5 rounded border ${
-                        doc.status === 'Failed' || doc._id?.startsWith('FAIL')
-                          ? 'bg-rose-100 text-rose-800 border-rose-300'
-                          : 'bg-sky-100 text-sky-800 border-sky-300'
-                      }`}>
-                        {doc.failedId || doc.imageId || doc._id}
+                      <span className="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 border border-sky-300">
+                        {doc.imageId || doc._id}
                       </span>
                       <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
                         {doc.documentType || 'document'}
                       </span>
-                      {doc.status === 'Failed' || doc._id?.startsWith('FAIL') ? (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200 inline-flex items-center space-x-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
-                          <span>Failed (Internal)</span>
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center space-x-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                          <span>Success</span>
-                        </span>
-                      )}
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center space-x-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        <span>Success</span>
+                      </span>
                     </div>
                     <h4 className="text-xs font-bold text-slate-800 truncate">
-                      {doc.data?.name || doc.error || doc.originalFileName || 'Unnamed Record'}
+                      {doc.data?.name || doc.originalFileName || 'Unnamed Applicant'}
                     </h4>
                     <div className="flex items-center justify-between text-[11px] text-slate-500 mt-0.5">
                       <span className="font-mono truncate max-w-[140px]">
