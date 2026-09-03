@@ -626,9 +626,11 @@ export default function ResultsView({
               )}
 
             </div>
+          </div>
+        )}
 
-            {/* CONFIRMATION / ACTION TOOLBAR */}
-            <div className="mt-8 pt-6 border-t border-slate-200">
+        {/* CONFIRMATION / ACTION TOOLBAR (Full-Width Block Across Whole Card) */}
+        <div className="mt-8 pt-6 border-t border-slate-200 w-full">
               
               {/* STATE 1: PENDING USER CONFIRMATION (Initial View: ✓ Correct / ✗ Wrong) */}
               {confirmationState === 'pending' && (
@@ -774,9 +776,6 @@ export default function ResultsView({
               )}
 
             </div>
-
-          </div>
-        )}
 
       </div>
 
