@@ -7,82 +7,83 @@
 [![MongoDB Atlas](https://img.shields.io/badge/Database-MongoDB_Atlas_Cloud-47A248.svg?style=flat&logo=mongodb)](https://www.mongodb.com)
 [![Compliance](https://img.shields.io/badge/Privacy-DPDP_%26_UIDAI_Compliant-success.svg)](#-data-privacy--enterprise-security)
 
-**Utility Bot** is an enterprise-grade automated identity verification system designed to extract, authenticate, and validate Indian government-issued identity documents (**Aadhaar Card**, **PAN Card**, and **Driving Licence**) in **under 1.2 seconds**, eliminating manual data entry, catching fraudulent documents, and ensuring 100% data privacy compliance.
+**Utility Bot** is an enterprise-grade automated identity verification system designed to extract, authenticate, and validate Indian government-issued identity documents (**Aadhaar Card [Front & Back]**, **PAN Card**, and **Driving Licence**) in **under 1.2 seconds**, eliminating manual data entry, catching fraudulent documents, and ensuring 100% data privacy compliance.
 
 ---
 
-## 📊 Executive Business Flowchart
+## 📊 End-to-End System Architecture
 
 ```text
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                               PHASE 1: CUSTOMER DOCUMENT INTAKE                                        │
-│  • High-Resolution Document Upload (Smartphones, Scanners, Webcams up to 48 MP)                       │
-│  • Instant 0.01s Pre-Flight Format Validation  MIME Multipurpose Internet Mail Extensions
-                                                (JPEG / PNG / WEBP) & Live Customer Preview              │
-│  • Branch & Device Privacy Isolation (Each workstation/device operates in a secure private workspace)   │
-└───────────────────────────────────────────────────┬────────────────────────────────────────────────────┘
-                                                    │ Secure HTTPS Encrypted Stream
-                                                    ▼
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                        PHASE 2: AUTOMATED SMART VERIFICATION ENGINE (1.2s)                             │
-│                                                                                                        │
-│  ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐  │
-│  │ 🔍 1. Automated Image Quality & Glare Correction                                                 │  │
-│  │ • Rejects blurry or unreadable photos automatically before processing                            │  │
-│  │ • Removes plastic card lamination glare and balances low-light contrast                         │  │
-│  └────────────────────────────────────────────────┬─────────────────────────────────────────────────┘  │
-│                                                   │ High-Definition Cleaned Image                      │
-│                                                   ▼                                                    │
-│  ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐  │
-│  │ 📖 2. Intelligent Optical Text Extraction (OCR)                                                  │  │
-│  │ • Reads text across multi-column cards, government emblems, photographs, and smart chips         │  │
-│  │ • Maps physical 2D coordinates for every word to prevent mixing cardholder and parent details   │  │
-│  └────────────────────────────────────────────────┬─────────────────────────────────────────────────┘  │
-│                                                   │ Mapped Identity Data Stream                        │
-│                                                   ▼                                                    │
-│  ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐  │
-│  │ 🛡️ 3. Fraud Filter & Pre-AI Security Gate                                                        │  │
-│  │ • Instant Rejection: Non-identity documents (bills, receipts) rejected in 0.05s ($0.00 cost)    │  │
-│  │ • Government Signature Check: Confirms UIDAI, Income Tax Department, or Transport Ministry stamp │  │
-│  └────────────────────────────────────────────────┬─────────────────────────────────────────────────┘  │
-│                                                   │ Genuine Government Document Match                  │
-│                                                   ▼                                                    │
-│  ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐  │
-│  │ 🧠 4. Advanced AI Semantic Understanding (Llama 3.3 70B @ 600 tokens/sec)                        │  │
-│  │ • Zero-Hallucination Extraction: Formats Name, Father's Name, DOB, Gender, and Full Address      │  │
-│  │ • Multilingual Comprehension: Accurately resolves bilingual Hindi/English PAN card layouts       │  │
-│  └────────────────────────────────────────────────┬─────────────────────────────────────────────────┘  │
-│                                                   │ Structured Identity Payload                        │
-│                                                   ▼                                                    │
-│  ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐  │
-│  │ 🔒 5. Regulatory Compliance & Anti-Fraud Layer                                                   │  │
-│  │ • Privacy Number Masking: Automatically masks first 8 Aadhaar digits (********7645)              │  │
-│  │ • Mathematical Checksum Check: Verifies 12-digit Aadhaar validity                               │  │
-│  │ • Duplicate / Fake Card Scanner: Flags 'DUPLICATE', 'SAMPLE', 'SPECIMEN', or 'COPY' watermarks  │  │
-│  │ • Date Standardization: Converts all date formats to universal ISO (YYYY-MM-DD)                 │  │
-│  └──────────────────────────────────────────────────────────────────────────────────────────────────┘  │
-└───────────────────────────────────────────────────┬────────────────────────────────────────────────────┘
-                                                    │ Validated Compliance Record + Photo Preview
-                                                    ▼
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                     PHASE 3: ENTERPRISE DATABASE & 30-DAY RETENTION POLICY                             │
-│  ┌──────────────────────────────────────────────┐   ┌───────────────────────────────────────────────┐  │
-│  │ ☁️ MongoDB Atlas Enterprise Cloud             │   │ 📁 High-Speed In-Memory Backup Store          │  │
-│  │ • Filtered strictly by Station / Device ID   │   │ • Zero-latency offline operation              │  │
-│  │ • Embedded ~40KB compressed photo thumbnail  │   │ • Instant search and retrieval                │  │
-│  │ • 30-Day Automated Auto-Purge (TTL Expiry)   │   │ • 1-Click database capacity cleanup           │  │
-│  └──────────────────────────────────────────────┘   └───────────────────────────────────────────────┘  │
-└───────────────────────────────────────────────────┬────────────────────────────────────────────────────┘
-                                                    │ Instant Real-Time Sync
-                                                    ▼
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                       PHASE 4: OPERATIONAL DASHBOARD & AUDIT SUITE                                     │
-│  • Clean Identity Result Cards: Verified Name, Father's Name, DOB, Masked ID, and Residential Address │
-│  • Document Photo Preview: Visual portrait display for fast in-person customer cross-checking          │
-│  • 3-Stage Visual Pipeline Audit: Inspect Original, Glare-Removed, and OCR-Annotated card views        │
-│  • 1-Click JSON & Spreadsheet Export: Instant integration into Core Banking, CRM, or HRMS Systems     │
-└────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+                                  [ Customer ID Document Upload ]
+                                                │
+                                                ▼
+                         ┌──────────────────────────────────────────────┐
+                         │  ⚡ Phase 1: Pre-Flight Processing (0.05s)    │
+                         │  • Contrast Enhancement & Glare Removal      │
+                         │  • Tesseract Spatial OCR & Bounding Boxes    │
+                         │  • Non-ID Rejection Security Gate            │
+                         └──────────────────────┬───────────────────────┘
+                                                │
+                                                ▼
+                         ┌──────────────────────────────────────────────┐
+                         │  🤖 Phase 2: AI Semantic Extraction (0.8s)   │
+                         │  • Llama 3.3 70B Structured Parsing          │
+                         │  • Front vs. Back Layout Auto-Classification │
+                         │  • UIDAI Masking (********7645) & Verhoeff   │
+                         └──────────────────────┬───────────────────────┘
+                                                │
+                                                ▼
+                         ┌──────────────────────────────────────────────┐
+                         │  ✍️ Phase 3: Human-in-the-Loop Confirmation  │
+                         └──────────────────────┬───────────────────────┘
+                                                │
+                     ┌──────────────────────────┴──────────────────────────┐
+                     ▼                                                     ▼
+             [ ✓ Correct ]                                            [ ✗ Wrong ]
+                     │                                                     │
+         ┌───────────┴───────────┐                             ┌───────────┴───────────┐
+         │ • Assigns IMG000001   │                             │ • Assigns FAIL000001  │
+         │ • Status: Success     │                             │ • Status: Failed      │
+         │ • Stored in DB:       │                             │ • Stored in DB:       │
+         │   'verifications'     │                             │   'failed_verifications'
+         │ • SHOWN in History    │                             │ • HIDDEN from History │
+         └───────────┬───────────┘                             └───────────┬───────────┘
+                     │                                                     │
+                     ▼                                                     ▼
+           [ Upload Next Document ]                              ┌─────────┴─────────┐
+                                                                 │ 1. 🔄 Retry       │
+                                                                 │ 2. 📁 Upload New  │
+                                                                 └───────────────────┘
 ```
+
+---
+
+## 🚀 Key Capabilities & Modules
+
+### 1. 🪪 Dual-Side Aadhaar & Driving Licence Intelligence
+* **Front Side Processing**: Automatically detects Name, Date of Birth / Year of Birth, Gender, 12-digit Aadhaar Number, and portrait thumbnail.
+* **Back Side Processing**: Automatically extracts Guardian/Spouse Name (`S/O`, `D/O`, `W/O`, `C/O`), Pincode, State, and Full Residential Address.
+* **Zero False Rejections**: The system never rejects an Aadhaar card simply because it is the back side; it parses and structures the address details accurately.
+
+### 2. 🛡️ Two-Step Confirmation & Recovery Workflow
+* **✓ Correct (Confirmed)**:
+  * Generates sequential identifier: `IMG000001`, `IMG000002`, etc.
+  * Saves to database with `Status: Success`, formatted Date (`03-09-2026`), Time (`03:30 PM`), and verified fields.
+  * Displays in the **History Page** drawer with instant search and filtering.
+* **✗ Wrong (Rejected)**:
+  * Generates sequential identifier: `FAIL000001`, `FAIL000002`, etc.
+  * Saves to the dedicated `failed_verifications` collection for audit compliance.
+  * **Strictly hidden / excluded from the public History page**.
+  * Presents two action options:
+    * **`🔄 Retry Same Image`**: Re-runs OCR and extraction on the existing document in memory.
+    * **`📁 Upload New Image`**: Returns directly to the upload zone to choose a clearer file.
+
+### 3. 🗄️ Database & Cloud Architecture
+* **MongoDB Atlas Multi-Collection Design**:
+  * `verifications`: Stores all confirmed successful KYC documents (`IMG...`).
+  * `failed_verifications`: Stores all rejected / failed audit logs (`FAIL...`).
+* **Automated 30-Day Retention (TTL)**: Documents are automatically purged from the database after 30 days to satisfy statutory data retention requirements.
+* **Device Privacy Isolation**: Header `X-Device-Id` isolates history per terminal/device.
 
 ---
 
@@ -92,22 +93,38 @@
 | :--- | :---: | :---: | :---: |
 | **Verification Speed** | 5 – 10 Minutes per card | **⚡ < 1.2 Seconds** | **500x Faster Turnaround** |
 | **Data Entry Errors** | 8% – 12% typing mistakes | **0.0% (Bank-Grade)** | **Zero Billing / KYC Disputes** |
-| **Fraud & Fake Detection** | Difficult to spot by eye | **🚨 Automatic Watermark Alert** | **Stops Fake Document Fraud** |
-| **Data Leakage Risk** | High (Paper photocopies) | **🔒 In-Memory Only (Zero Leakage)** | **100% DPDP & GDPR Compliant** |
-| **Operating Cost** | High Staff Overhead | **$0.00 Cloud Compute (Free Tier)** | **Massive Operational Savings** |
+| **Fraud & Duplicate Detection** | Difficult to spot by eye | **🚨 Automatic Watermark Alert** | **Stops Fake / Sample Documents** |
+| **Aadhaar Privacy Compliance** | Risky photocopy storage | **🔒 First 8 Digits Auto-Masked** | **100% UIDAI & DPDP Compliant** |
+| **Aadhaar Back Side Support** | Manual address typing | **⚡ Instant Address Parsing** | **Seamless Address Capture** |
+| **Audit Compliance Logging** | Lost failed attempts | **📁 Dedicated Failed Collection** | **Full Regulatory Audit Trail** |
 
 ---
 
 ## 🔒 Data Privacy & Enterprise Security
 
-1. **In-Memory RAM Processing (`io.BytesIO`)**: Original full-sized identity images are processed entirely in RAM memory for 1.2 seconds and **never permanently written to the server's hard disk**.
+1. **In-Memory RAM Processing (`io.BytesIO`)**: Original full-sized identity images are processed entirely in RAM memory for 1.2 seconds and **never permanently written unencrypted to the hard disk**.
 2. **UIDAI-Compliant Aadhaar Masking**: The first 8 digits of all Aadhaar numbers are masked (`********7645`) prior to database storage or UI display.
-3. **Automated 30-Day Retention Policy (TTL)**: Documents and photo thumbnails are automatically purged from MongoDB after 30 days to satisfy statutory data retention limitations.
-4. **Device Privacy Isolation**: Each client workstation operates in its own isolated workspace, preventing cross-branch data visibility.
+3. **Mathematical Checksum Validation**: Uses the official UIDAI **Verhoeff algorithm** to validate 12-digit Aadhaar numbers against tampering.
+4. **Watermark & Duplicate Detection**: Scans for `DUPLICATE`, `SAMPLE`, `SPECIMEN`, and `PHOTOCOPY` watermarks, alerting operators instantly.
 
 ---
 
-## 🚀 Quickstart Guide for Operations
+## 📡 API Reference
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/extract` | Extracts data from uploaded document image using OpenCV + OCR + LLM. |
+| `POST` | `/confirm-result` | Confirms extracted data, generates `IMG000001`, and stores in `verifications` collection. |
+| `POST` | `/reject-result` | Rejects extraction, generates `FAIL000001`, and stores in `failed_verifications` collection. |
+| `GET` | `/history` | Retrieves confirmed verification records (Success only) filtered by Device ID. |
+| `GET` | `/history/{doc_id}` | Retrieves a single verification record by ID. |
+| `DELETE`| `/history/{doc_id}` | Deletes a verification record by ID. |
+| `GET` | `/models` | Returns available AI chat completion models from Groq. |
+| `GET` | `/health` | Health check endpoint returning OCR and database connectivity status. |
+
+---
+
+## 🚀 Quickstart Guide
 
 ### 🌟 1-Click Production Launch (Windows)
 Double-click:
