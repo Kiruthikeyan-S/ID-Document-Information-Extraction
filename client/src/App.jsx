@@ -47,6 +47,14 @@ export default function App() {
 
     try {
       const result = await extractDocumentApi(selectedFile, settings);
+      // Explicitly mark fresh extraction as Pending confirmation with a unique timestamp token
+      result.extraction_timestamp = Date.now();
+      result.status = 'Pending';
+      result.id = null;
+      result.image_id = null;
+      result.failed_id = null;
+      result.confirmed = false;
+
       setExtractionResult(result);
       setActiveTab('fields');
     } catch (err) {
@@ -238,6 +246,7 @@ export default function App() {
             {/* Tab 1: Extracted Fields Card */}
             {activeTab === 'fields' && (
               <ResultsView 
+                key={extractionResult?.extraction_timestamp || 'initial'}
                 result={extractionResult} 
                 onCorrect={handleCorrect}
                 onWrong={handleWrong}

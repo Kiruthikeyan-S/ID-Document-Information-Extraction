@@ -47,7 +47,9 @@ export default function ResultsView({
 
   // Local editable state for human-in-the-loop editing
   const [formData, setFormData] = useState(data || {});
-  const [confirmationState, setConfirmationState] = useState('pending'); // 'pending' | 'correct' | 'wrong'
+  const [confirmationState, setConfirmationState] = useState(
+    result?.confirmed ? 'correct' : (result?.status === 'Failed' && result?.failed_id) ? 'wrong' : 'pending'
+  );
   const [confirmedId, setConfirmedId] = useState(image_id || null);
   const [loggedFailedId, setLoggedFailedId] = useState(failed_id || null);
   const [isSaving, setIsSaving] = useState(false);
@@ -56,14 +58,16 @@ export default function ResultsView({
     setFormData(data || {});
     if (result?.confirmed) {
       setConfirmationState('correct');
+      if (image_id) setConfirmedId(image_id);
     } else if (result?.status === 'Failed' && result?.failed_id) {
       setConfirmationState('wrong');
-    } else if (!result?.id && !result?.image_id && !result?.failed_id) {
+      if (failed_id) setLoggedFailedId(failed_id);
+    } else {
       setConfirmationState('pending');
+      setConfirmedId(null);
+      setLoggedFailedId(null);
     }
-    if (image_id) setConfirmedId(image_id);
-    if (failed_id) setLoggedFailedId(failed_id);
-  }, [result?.raw_ocr_text, result?.document_type]);
+  }, [result?.extraction_timestamp, result?.raw_ocr_text]);
 
   const handleFieldChange = (field, val) => {
     setFormData(prev => ({ ...prev, [field]: val }));
@@ -99,10 +103,28 @@ export default function ResultsView({
     }
   };
 
-  const displayId = confirmedId || loggedFailedId || image_id || failed_id || result.id || 'IMG000001';
+  const handleRetryClick = () => {
+    setConfirmationState('pending');
+    setConfirmedId(null);
+    setLoggedFailedId(null);
+    if (onRetry) {
+      onRetry();
+    }
+  };
+
+  const displayId = confirmationState === 'correct' 
+    ? (confirmedId || image_id || 'IMG000001')
+    : confirmationState === 'wrong'
+    ? (loggedFailedId || failed_id || 'FAIL000001')
+    : 'Pending Confirmation';
+
   const displayDate = date || new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
   const displayTime = time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const displayStatus = confirmationState === 'correct' ? 'Success' : confirmationState === 'wrong' ? 'Failed' : status || (short_circuited ? 'Failed' : 'Success');
+  const displayStatus = confirmationState === 'correct' 
+    ? 'Success' 
+    : confirmationState === 'wrong' 
+    ? 'Failed' 
+    : 'Awaiting Verification';
 
   // Document Badge Colors for Light Theme
   const getBadge = () => {
@@ -187,15 +209,29 @@ export default function ResultsView({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
           <div>
             <div className="flex items-center space-x-2 mb-2 flex-wrap gap-y-1">
-              <span className="text-xs font-bold font-mono px-2.5 py-1 rounded-md bg-sky-100 text-sky-800 border border-sky-300 shadow-sm">
+              <span className={`text-xs font-bold font-mono px-2.5 py-1 rounded-md border shadow-sm ${
+                confirmationState === 'correct'
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                  : confirmationState === 'wrong'
+                  ? 'bg-rose-50 text-rose-800 border-rose-300'
+                  : 'bg-sky-50 text-sky-800 border-sky-300'
+              }`}>
                 ID: {displayId}
               </span>
               <span className={`text-xs font-bold px-2.5 py-1 rounded-md inline-flex items-center space-x-1.5 border shadow-sm ${
                 displayStatus === 'Success' 
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-300' 
-                  : 'bg-rose-50 text-rose-700 border-rose-300'
+                  : displayStatus === 'Failed'
+                  ? 'bg-rose-50 text-rose-700 border-rose-300'
+                  : 'bg-amber-50 text-amber-800 border-amber-300'
               }`}>
-                <span className={`w-2 h-2 rounded-full ${displayStatus === 'Success' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></span>
+                <span className={`w-2 h-2 rounded-full ${
+                  displayStatus === 'Success' 
+                    ? 'bg-emerald-500' 
+                    : displayStatus === 'Failed'
+                    ? 'bg-rose-500'
+                    : 'bg-amber-500 animate-pulse'
+                }`}></span>
                 <span>Status: {displayStatus}</span>
               </span>
               {getBadge()}
@@ -758,7 +794,7 @@ export default function ResultsView({
                       {/* Option 1: Retry */}
                       <button
                         type="button"
-                        onClick={onRetry}
+                        onClick={handleRetryClick}
                         className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl font-bold text-xs bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-white shadow-md transition flex items-center justify-center space-x-2 cursor-pointer active:scale-95"
                       >
                         <RotateCcw className="w-4 h-4 text-slate-300" />
