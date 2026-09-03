@@ -11,49 +11,75 @@
 
 ---
 
-## 📊 End-to-End System Architecture
+## 📊 End-to-End System Architecture & Multi-Entry Flow
 
 ```text
-                                  [ Customer ID Document Upload ]
-                                                │
-                                                ▼
-                         ┌──────────────────────────────────────────────┐
-                         │  ⚡ Phase 1: Pre-Flight Processing (0.05s)    │
-                         │  • Contrast Enhancement & Glare Removal      │
-                         │  • Tesseract Spatial OCR & Bounding Boxes    │
-                         │  • Non-ID Rejection Security Gate            │
-                         └──────────────────────┬───────────────────────┘
-                                                │
-                                                ▼
-                         ┌──────────────────────────────────────────────┐
-                         │  🤖 Phase 2: AI Semantic Extraction (0.8s)   │
-                         │  • Llama 3.3 70B Structured Parsing          │
-                         │  • Front vs. Back Layout Auto-Classification │
-                         │  • UIDAI Masking (********7645) & Verhoeff   │
-                         └──────────────────────┬───────────────────────┘
-                                                │
-                                                ▼
-                         ┌──────────────────────────────────────────────┐
-                         │  ✍️ Phase 3: Human-in-the-Loop Confirmation  │
-                         └──────────────────────┬───────────────────────┘
-                                                │
-                     ┌──────────────────────────┴──────────────────────────┐
-                     ▼                                                     ▼
-             [ ✓ Correct ]                                            [ ✗ Wrong ]
-                     │                                                     │
-         ┌───────────┴───────────┐                             ┌───────────┴───────────┐
-         │ • Assigns IMG000001   │                             │ • Assigns FAIL000001  │
-         │ • Status: Success     │                             │ • Status: Failed      │
-         │ • Stored in DB:       │                             │ • Stored in DB:       │
-         │   'verifications'     │                             │   'failed_verifications'
-         │ • SHOWN in History    │                             │ • HIDDEN from History │
-         └───────────┬───────────┘                             └───────────┬───────────┘
-                     │                                                     │
-                     ▼                                                     ▼
-           [ Upload Next Document ]                              ┌─────────┴─────────┐
-                                                                 │ 1. 🔄 Retry       │
-                                                                 │ 2. 📁 Upload New  │
-                                                                 └───────────────────┘
+                        ┌─────────────────────────────────────────────────────────┐
+                        │          MULTI-ENTRY DOCUMENT INTAKE PORTAL             │
+                        └────────────────────────────┬────────────────────────────┘
+                                                     │
+         ┌───────────────────┬───────────────────────┼───────────────────────┬───────────────────┐
+         ▼                   ▼                       ▼                       ▼                   ▼
+ ┌───────────────┐   ┌───────────────┐       ┌───────────────┐       ┌───────────────┐   ┌───────────────┐
+ │ 🪪 Aadhaar    │   │ 🪪 Aadhaar    │       │ 💳 PAN Card   │       │ 🚗 DL Front   │   │ 🚗 DL Back    │
+ │   FRONT Side  │   │   BACK Side   │       │   (Front)     │       │               │   │               │
+ └───────┬───────┘   └───────┬───────┘       └───────┬───────┘       └───────┬───────┘   └───────┬───────┘
+         │                   │                       │                       │                   │
+         └───────────────────┴───────────────────────┼───────────────────────┴───────────────────┘
+                                                     │ Secure Multi-Part Stream
+                                                     ▼
+                         ┌────────────────────────────────────────────────────────┐
+                         │   ⚡ Phase 1: Computer Vision Preprocessing (0.05s)    │
+                         │   • Contrast Enhancement, Denoising & Glare Removal    │
+                         │   • Tesseract Spatial OCR & 2D Word Bounding Boxes     │
+                         │   • Non-ID Fraud Filter Gate (0.00s Instant Rejection) │
+                         └───────────────────────────┬────────────────────────────┘
+                                                     │ High-Confidence OCR Layout
+                                                     ▼
+                         ┌────────────────────────────────────────────────────────┐
+                         │   🤖 Phase 2: AI Multi-Document Classifier & LLM       │
+                         │   • Document Type Auto-Detection                       │
+                         │   • Llama 3.3 70B Structured Schema Extraction         │
+                         │   • UIDAI Masking (********7645) & Verhoeff Checksum   │
+                         └───────────────────────────┬────────────────────────────┘
+                                                     │ Formatted Fields + Images
+                                                     ▼
+ ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │                                   🖥️ EXTRACTED OUTPUT DASHBOARD (UI)                                    │
+ │ ┌───────────────────────────┐ ┌───────────────────────────────┐ ┌─────────────────────────────────────┐ │
+ │ │  📷 Applicant Photo       │ │ 👤 APPLICANT NAME             │ │ 🔢 MASKED ID NUMBER                 │ │
+ │ │  ┌─────────────────────┐  │ │    S Kiruthikeyan             │ │    ********7645                     │ │
+ │ │  │ [ Card Thumbnail ]  │  │ └───────────────────────────────┘ └─────────────────────────────────────┘ │
+ │ │  └─────────────────────┘  │ ┌───────────────────────────────┐ ┌─────────────────────────────────────┐ │
+ │ │  Stored 30-day retention  │ │ 📅 DATE OF BIRTH / YOB        │ │ ⚥  GENDER / GUARDIAN                │ │
+ │ │                           │ │    2004-11-18                 │ │    Male / S/O: Sevugaperumal        │ │
+ │ └───────────────────────────┘ └───────────────────────────────┘ └─────────────────────────────────────┘ │
+ │ ┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐ │
+ │ │ 📍 RESIDENTIAL ADDRESS (Aadhaar/DL Back): D No 53/2, St.Xavier Street, Periyakulam - 625601          │ │
+ │ └─────────────────────────────────────────────────────────────────────────────────────────────────────┘ │
+ │                                                                                                         │
+ │ ✍️ Step 2: Confirm Extracted Information                                                                │
+ │ Please review all fields above. You can click and edit any field directly before confirming.            │
+ │                                                  [ ✓ Correct ]           [ ✗ Wrong ]                    │
+ └───────────────────────────────────────────────────────┬───────────────────────┬─────────────────────────┘
+                                                         │                       │
+                                 ┌───────────────────────┘                       └───────────────────────┐
+                                 ▼                                                                       ▼
+                 ┌───────────────────────────────┐                                       ┌───────────────────────────────┐
+                 │ 🟢 USER CLICKED "✓ Correct"   │                                       │ 🔴 USER CLICKED "✗ Wrong"     │
+                 ├───────────────────────────────┤                                       ├───────────────────────────────┤
+                 │ • Generates ID: `IMG000001`   │                                       │ • Generates ID: `FAIL000001`  │
+                 │ • Status: `Success`           │                                       │ • Status: `Failed`            │
+                 │ • Stored in MongoDB:          │                                       │ • Stored in MongoDB:          │
+                 │   Collection: `verifications` │                                       │   Col: `failed_verifications` │
+                 │ • SHOWN in History Page       │                                       │ • HIDDEN from History Page    │
+                 └───────────────┬───────────────┘                                       └───────────────┬───────────────┘
+                                 │                                                                       │
+                                 ▼                                                                       ▼
+                     [ Upload Next Document ]                                            ┌───────────────┴───────────────┐
+                                                                                         │ 1. 🔄 Retry Same Image        │
+                                                                                         │ 2. 📁 Upload New Image        │
+                                                                                         └───────────────────────────────┘
 ```
 
 ---
