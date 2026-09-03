@@ -6,7 +6,7 @@ import ResultsView from './components/ResultsView';
 import VisualPipeline from './components/VisualPipeline';
 import JsonViewer from './components/JsonViewer';
 import HistoryDrawer from './components/HistoryDrawer';
-import { extractDocumentApi, getHealthApi, confirmExtractionApi } from './services/api';
+import { extractDocumentApi, getHealthApi, confirmResultApi, rejectResultApi } from './services/api';
 import { Sparkles, Eye, FileText, Code, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
 
 export default function App() {
@@ -58,16 +58,48 @@ export default function App() {
     }
   };
 
-  const handleConfirm = async (updatedData) => {
-    const docId = extractionResult?.id || extractionResult?.image_id;
-    if (docId) {
-      await confirmExtractionApi(docId, updatedData);
-      setExtractionResult(prev => ({
-        ...prev,
-        data: updatedData,
-        confirmed: true
-      }));
-    }
+  const handleCorrect = async (updatedData) => {
+    if (!extractionResult) return;
+    const payload = {
+      document_type: extractionResult.document_type,
+      data: updatedData || extractionResult.data,
+      image: extractionResult.images?.original || null,
+      thumbnail: extractionResult.images?.original || null,
+      originalFileName: selectedFile?.name || 'document.jpg',
+      is_duplicate_or_sample: extractionResult.is_duplicate_or_sample,
+      authenticity_status: extractionResult.authenticity_status,
+      ocr_confidence: extractionResult.ocr_confidence,
+      quality_report: extractionResult.quality_report,
+      raw_ocr_text: extractionResult.raw_ocr_text,
+    };
+    const res = await confirmResultApi(payload);
+    setExtractionResult(prev => ({
+      ...prev,
+      id: res.imageId,
+      image_id: res.imageId,
+      data: updatedData || prev.data,
+      status: 'Success',
+      confirmed: true
+    }));
+    return res;
+  };
+
+  const handleWrong = async () => {
+    if (!extractionResult) return;
+    const payload = {
+      originalFileName: selectedFile?.name || 'document.jpg',
+      image: extractionResult.images?.original || null,
+      thumbnail: extractionResult.images?.original || null,
+      error: 'User clicked Wrong (Extraction inaccurate)',
+    };
+    const res = await rejectResultApi(payload);
+    setExtractionResult(prev => ({
+      ...prev,
+      failed_id: res.failedId,
+      status: 'Failed',
+      confirmed: false
+    }));
+    return res;
   };
 
   const handleClear = () => {
@@ -207,8 +239,10 @@ export default function App() {
             {activeTab === 'fields' && (
               <ResultsView 
                 result={extractionResult} 
-                onConfirm={handleConfirm}
+                onCorrect={handleCorrect}
+                onWrong={handleWrong}
                 onRetry={handleExtract}
+                onUploadNew={handleClear}
                 onReupload={handleClear}
                 onUploadAnother={handleClear}
               />

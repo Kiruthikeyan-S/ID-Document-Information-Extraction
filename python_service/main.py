@@ -23,8 +23,8 @@ from llm_extractor import extract_document_info, get_available_models
 from validation import validate_and_clean_extraction
 from utils import pil_to_cv2, cv2_to_base64, logger
 from storage import (
-    save_extraction, 
-    save_failed_extraction, 
+    save_confirmed_record, 
+    save_rejected_record, 
     confirm_or_update_extraction,
     get_history, 
     get_extraction_by_id, 
@@ -125,21 +125,50 @@ def trigger_storage_cleanup(
     return clean_storage(device_id=x_device_id, force_all=force_all)
 
 
-@app.post("/history/{doc_id}/confirm")
-def confirm_history_record(
-    doc_id: str,
+@app.post("/confirm-result")
+def confirm_result_endpoint(
     payload: dict,
     x_device_id: Optional[str] = Header(None, alias="X-Device-Id")
 ):
-    """Marks extraction record as confirmed and saves any user-edited field values."""
-    updated = confirm_or_update_extraction(
-        doc_id=doc_id,
-        updated_data=payload.get("data", payload),
-        device_id=x_device_id
+    """
+    Called when user clicks '✓ Correct'.
+    Stores image, extracted data, date, time with IMG000001 in database and History.
+    """
+    active_device = x_device_id or payload.get("deviceId") or "default_client"
+    image_id = save_confirmed_record(
+        result_dict=payload,
+        original_filename=payload.get("originalFileName", "document.jpg"),
+        thumbnail_image=payload.get("image") or payload.get("thumbnail"),
+        device_id=active_device
     )
-    if not updated:
-        raise HTTPException(status_code=404, detail="Document record not found or not authorized.")
-    return {"status": "success", "message": "Document confirmed & saved to history.", "record": updated}
+    return {
+        "status": "Success",
+        "imageId": image_id,
+        "message": f"Record successfully confirmed and saved as {image_id}"
+    }
+
+
+@app.post("/reject-result")
+def reject_result_endpoint(
+    payload: dict,
+    x_device_id: Optional[str] = Header(None, alias="X-Device-Id")
+):
+    """
+    Called when user clicks '✗ Wrong'.
+    Stores image, date, time with FAIL000001 in database (HIDDEN from History page).
+    """
+    active_device = x_device_id or payload.get("deviceId") or "default_client"
+    failed_id = save_rejected_record(
+        original_filename=payload.get("originalFileName", "document.jpg"),
+        thumbnail_image=payload.get("image") or payload.get("thumbnail"),
+        error_message=payload.get("error", "User clicked Wrong (Extraction inaccurate)"),
+        device_id=active_device
+    )
+    return {
+        "status": "Failed",
+        "failedId": failed_id,
+        "message": f"Failed upload logged internally as {failed_id}"
+    }
 
 
 @app.post("/extract", response_model=FinalExtractionResult)
@@ -310,21 +339,12 @@ async def extract_document(
         short_circuited=False
     )
 
-    # 8. Save extraction to persistent history store with IMG000001 sequential ID, date, time & 30-day retention
+    # 8. Return preview extraction result with formatted date & time
     from datetime import datetime
     now_local = datetime.now()
-    doc_id = save_extraction(
-        result_dict=final_result.model_dump() if hasattr(final_result, 'model_dump') else final_result.dict(),
-        original_filename=file.filename or "document.jpg",
-        thumbnail_image=pipeline_images.get("original"),
-        device_id=active_device,
-        is_success=True
-    )
-    final_result.id = doc_id
-    final_result.image_id = doc_id
     final_result.date = now_local.strftime("%d-%m-%Y")
     final_result.time = now_local.strftime("%I:%M %p")
-    final_result.status = "Success"
+    final_result.status = "Pending"  # Awaiting user confirmation ("✓ Correct" or "✗ Wrong")
 
     return final_result
 

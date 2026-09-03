@@ -18,7 +18,15 @@ import {
   Check
 } from 'lucide-react';
 
-export default function ResultsView({ result, onConfirm, onRetry, onReupload, onUploadAnother }) {
+export default function ResultsView({ 
+  result, 
+  onCorrect, 
+  onWrong, 
+  onRetry, 
+  onUploadNew,
+  onReupload, 
+  onUploadAnother 
+}) {
   if (!result) return null;
 
   const { 
@@ -39,36 +47,56 @@ export default function ResultsView({ result, onConfirm, onRetry, onReupload, on
 
   // Local editable state for human-in-the-loop editing
   const [formData, setFormData] = useState(data || {});
-  const [isConfirmed, setIsConfirmed] = useState(false);
+  const [confirmationState, setConfirmationState] = useState('pending'); // 'pending' | 'correct' | 'wrong'
+  const [confirmedId, setConfirmedId] = useState(image_id || null);
+  const [loggedFailedId, setLoggedFailedId] = useState(failed_id || null);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     setFormData(data || {});
-    setIsConfirmed(false);
+    setConfirmationState('pending');
+    setConfirmedId(image_id || null);
+    setLoggedFailedId(failed_id || null);
   }, [data, result]);
 
   const handleFieldChange = (field, val) => {
     setFormData(prev => ({ ...prev, [field]: val }));
   };
 
-  const handleConfirmClick = async () => {
+  const handleCorrectClick = async () => {
     setIsSaving(true);
     try {
-      if (onConfirm) {
-        await onConfirm(formData);
+      if (onCorrect) {
+        const res = await onCorrect(formData);
+        if (res?.imageId) setConfirmedId(res.imageId);
       }
-      setIsConfirmed(true);
+      setConfirmationState('correct');
     } catch (e) {
-      console.error('Confirm error:', e);
+      console.error('Confirm correct error:', e);
     } finally {
       setIsSaving(false);
     }
   };
 
-  const displayId = image_id || failed_id || result.id || 'IMG000001';
+  const handleWrongClick = async () => {
+    setIsSaving(true);
+    try {
+      if (onWrong) {
+        const res = await onWrong();
+        if (res?.failedId) setLoggedFailedId(res.failedId);
+      }
+      setConfirmationState('wrong');
+    } catch (e) {
+      console.error('Confirm wrong error:', e);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const displayId = confirmedId || loggedFailedId || image_id || failed_id || result.id || 'IMG000001';
   const displayDate = date || new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
   const displayTime = time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const displayStatus = status || (short_circuited ? 'Failed' : 'Success');
+  const displayStatus = confirmationState === 'correct' ? 'Success' : confirmationState === 'wrong' ? 'Failed' : status || (short_circuited ? 'Failed' : 'Success');
 
   // Document Badge Colors for Light Theme
   const getBadge = () => {
@@ -602,75 +630,114 @@ export default function ResultsView({ result, onConfirm, onRetry, onReupload, on
             {/* CONFIRMATION / ACTION TOOLBAR */}
             <div className="mt-8 pt-6 border-t border-slate-200">
               
-              {/* Success Confirmation Toast Banner */}
-              {isConfirmed && (
-                <div className="mb-4 p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-300 shadow-sm">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 rounded-lg bg-emerald-600 text-white">
-                      <Check className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-emerald-950">Record Confirmed & Verified!</h4>
-                      <p className="text-xs text-emerald-700">
-                        Saved to database as <strong className="font-mono">{displayId}</strong> on {displayDate} at {displayTime}.
-                      </p>
-                    </div>
+              {/* STATE 1: PENDING USER CONFIRMATION (Initial View: ✓ Correct / ✗ Wrong) */}
+              {confirmationState === 'pending' && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200 shadow-sm">
+                  <div className="text-xs text-slate-600 flex items-center space-x-2">
+                    <Edit2 className="w-4 h-4 text-sky-600 flex-shrink-0" />
+                    <span>Please verify the extracted information above. Click <strong>✓ Correct</strong> to save to History or <strong>✗ Wrong</strong> to reject.</span>
                   </div>
-                  <span className="text-xs font-bold px-3 py-1 bg-emerald-200 text-emerald-800 rounded-full">
-                    ✓ Verified in History
-                  </span>
+
+                  <div className="flex items-center space-x-3 w-full sm:w-auto flex-shrink-0">
+                    {/* Button 1: ✓ Correct */}
+                    <button
+                      onClick={handleCorrectClick}
+                      disabled={isSaving}
+                      className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/20 active:scale-95 transition flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>{isSaving ? 'Saving...' : '✓ Correct'}</span>
+                    </button>
+
+                    {/* Button 2: ✗ Wrong */}
+                    <button
+                      onClick={handleWrongClick}
+                      disabled={isSaving}
+                      className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl font-bold text-xs bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-600/20 active:scale-95 transition flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
+                    >
+                      <XCircle className="w-4 h-4" />
+                      <span>✗ Wrong</span>
+                    </button>
+                  </div>
                 </div>
               )}
 
-              {/* Action Buttons Row */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="text-xs text-slate-500 flex items-center space-x-1.5">
-                  <Edit2 className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Click any field above to edit or correct values before confirming.</span>
+              {/* STATE 2: USER CLICKED "✓ Correct" */}
+              {confirmationState === 'correct' && (
+                <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 rounded-lg bg-emerald-600 text-white flex-shrink-0">
+                        <Check className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-emerald-950">Record Confirmed & Saved!</h4>
+                        <p className="text-xs text-emerald-700">
+                          Saved to database as <strong className="font-mono">{displayId}</strong> on {displayDate} at {displayTime}.
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold px-3 py-1 bg-emerald-200 text-emerald-800 rounded-full self-start sm:self-auto flex-shrink-0">
+                      ✓ Stored in History
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-end space-x-3">
+                    <button
+                      onClick={onUploadNew || onReupload || onUploadAnother}
+                      className="px-5 py-2.5 rounded-xl font-bold text-xs bg-sky-600 hover:bg-sky-500 text-white shadow-md transition flex items-center space-x-2 cursor-pointer active:scale-95"
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                      <span>Upload Next Document</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
+              )}
 
-                <div className="flex items-center space-x-3 w-full sm:w-auto">
-                  
-                  {/* Button 1: ✓ Correct */}
-                  <button
-                    onClick={handleConfirmClick}
-                    disabled={isSaving || isConfirmed}
-                    className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition flex items-center justify-center space-x-2 cursor-pointer ${
-                      isConfirmed
-                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 cursor-default'
-                        : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20 active:scale-95'
-                    }`}
-                  >
-                    <Check className="w-4 h-4" />
-                    <span>{isSaving ? 'Saving...' : isConfirmed ? '✓ Confirmed' : '✓ Correct'}</span>
-                  </button>
+              {/* STATE 3: USER CLICKED "✗ Wrong" */}
+              {confirmationState === 'wrong' && (
+                <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="p-4 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 rounded-lg bg-rose-600 text-white flex-shrink-0">
+                        <XCircle className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-rose-950">Marked as Wrong / Inaccurate</h4>
+                        <p className="text-xs text-rose-700">
+                          Logged internally as <strong className="font-mono">{displayId}</strong>. This failed record is <strong>NOT shown on the History page</strong>.
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold px-3 py-1 bg-rose-200 text-rose-800 rounded-full self-start sm:self-auto flex-shrink-0">
+                      Internal Audit Only
+                    </span>
+                  </div>
 
-                  {/* Button 2: 🔄 Retry */}
-                  {onRetry && (
+                  {/* 2 Required Options after clicking Wrong: Retry and Upload New Image */}
+                  <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-2">
+                    {/* Option 1: Retry */}
                     <button
                       onClick={onRetry}
-                      className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl font-bold text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition flex items-center justify-center space-x-1.5 shadow-sm active:scale-95 cursor-pointer"
-                      title="Process the same image again"
+                      className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-xs bg-slate-800 hover:bg-slate-700 text-white shadow-md transition flex items-center justify-center space-x-2 cursor-pointer active:scale-95"
                     >
-                      <RotateCcw className="w-4 h-4 text-slate-600" />
+                      <RotateCcw className="w-4 h-4 text-slate-300" />
                       <span>Retry</span>
                     </button>
-                  )}
 
-                  {/* Button 3: 📁 Re-upload Image */}
-                  {(onReupload || onUploadAnother) && (
+                    {/* Option 2: Upload New Image */}
                     <button
-                      onClick={onReupload || onUploadAnother}
-                      className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl font-bold text-xs bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-300 transition flex items-center justify-center space-x-1.5 shadow-sm active:scale-95 cursor-pointer"
-                      title="Upload a new and clearer image"
+                      onClick={onUploadNew || onReupload || onUploadAnother}
+                      className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-xs bg-sky-600 hover:bg-sky-500 text-white shadow-md transition flex items-center justify-center space-x-2 cursor-pointer active:scale-95"
                     >
-                      <ImageIcon className="w-4 h-4 text-sky-600" />
-                      <span>Re-upload Image</span>
+                      <ImageIcon className="w-4 h-4" />
+                      <span>Upload New Image</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
                     </button>
-                  )}
-
+                  </div>
                 </div>
-              </div>
+              )}
 
             </div>
 

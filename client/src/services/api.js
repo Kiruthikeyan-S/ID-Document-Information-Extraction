@@ -141,6 +141,24 @@ export const getDocumentByIdApi = async (id) => {
 };
 
 /**
+ * Confirms extraction result when user clicks '✓ Correct'.
+ * Stores with IMG000001 in database and shows in History page.
+ */
+export const confirmResultApi = async (payload) => {
+  const response = await api.post('/confirm-result', payload);
+  return response.data;
+};
+
+/**
+ * Rejects extraction result when user clicks '✗ Wrong'.
+ * Stores with FAIL000001 in database (HIDDEN from History page).
+ */
+export const rejectResultApi = async (payload) => {
+  const response = await api.post('/reject-result', payload);
+  return response.data;
+};
+
+/**
  * Confirms extraction record and updates any edited fields.
  */
 export const confirmExtractionApi = async (id, updatedData) => {

@@ -106,18 +106,18 @@ def get_next_sequential_id(prefix: str = "IMG") -> str:
     return f"{prefix}{next_num:06d}"
 
 
-def save_extraction(
+def save_confirmed_record(
     result_dict: Dict[str, Any], 
     original_filename: str = "document.jpg",
     thumbnail_image: Optional[str] = None,
-    device_id: Optional[str] = None,
-    is_success: bool = True
+    device_id: Optional[str] = None
 ) -> str:
-    """Saves document verification extraction with IMG000001 sequential ID, date, time, and 30-day retention."""
+    """
+    Saves confirmed verification extraction when user clicks '✓ Correct'.
+    Generates IMG000001 sequential ID, date, time, and displays on History page.
+    """
     history = read_history(auto_purge=True)
-    
-    prefix = "IMG" if is_success else "FAIL"
-    doc_id = get_next_sequential_id(prefix)
+    image_id = get_next_sequential_id("IMG")
     
     clean_data = result_dict.get("data", {})
     if hasattr(clean_data, "dict"):
@@ -131,13 +131,12 @@ def save_extraction(
     formatted_time = now_local.strftime("%I:%M %p")
 
     record = {
-        "_id": doc_id,
-        "imageId": doc_id if is_success else None,
-        "failedId": doc_id if not is_success else None,
+        "_id": image_id,
+        "imageId": image_id,
         "deviceId": device_id or "default_client",
         "documentType": result_dict.get("document_type", "unsupported"),
-        "status": "Success" if is_success else "Failed",
-        "isValid": result_dict.get("is_valid", is_success),
+        "status": "Success",
+        "isValid": result_dict.get("is_valid", True),
         "shortCircuited": result_dict.get("short_circuited", False),
         "isDuplicateOrSample": result_dict.get("is_duplicate_or_sample", False),
         "authenticityStatus": result_dict.get("authenticity_status", "VERIFIED"),
@@ -152,19 +151,19 @@ def save_extraction(
         "thumbnail": thumbnail_image,
         "date": formatted_date,
         "time": formatted_time,
-        "confirmed": False,
+        "confirmed": True,
         "createdAt": now_utc.isoformat() + "Z",
         "expiresAt": expires_at.isoformat() + "Z",
         "retentionDays": RETENTION_DAYS,
     }
     
-    # 1. Insert into local memory history
+    # Insert at top of history
     history.insert(0, record)
     if len(history) > 300:
         history = history[:300]
     write_history(history)
 
-    # 2. Insert directly into MongoDB Atlas cloud collection
+    # Insert into MongoDB Atlas cloud collection
     if mongo_collection is not None:
         try:
             import pymongo
@@ -177,24 +176,25 @@ def save_extraction(
             )
             sync_db = sync_client["utility_bot"]
             sync_col = sync_db["verifications"]
-            sync_col.replace_one({"_id": doc_id}, record, upsert=True)
-            print(f"[Utility Bot Storage] Synced document {doc_id} to MongoDB Atlas cloud!")
+            sync_col.replace_one({"_id": image_id}, record, upsert=True)
+            print(f"[Utility Bot Storage] Synced confirmed document {image_id} to MongoDB Atlas cloud!")
         except Exception as err:
             print(f"[Utility Bot Storage] MongoDB sync notice (local backup preserved): {err}")
 
-    return doc_id
+    return image_id
 
 
-def save_failed_extraction(
+def save_rejected_record(
     original_filename: str = "document.jpg",
     thumbnail_image: Optional[str] = None,
-    error_message: str = "Document processing failed",
+    error_message: str = "User rejected extraction (Marked as Wrong)",
     device_id: Optional[str] = None,
     raw_ocr_text: str = ""
 ) -> str:
     """
-    Saves failed image uploads with FAIL000001 ID, date, and time.
-    Stored for internal use and compliance, but filtered out from public History page.
+    Saves rejected/failed record when user clicks '✗ Wrong'.
+    Generates FAIL000001 ID, stores date and time.
+    Stored for internal use and compliance, but HIDDEN from user History page.
     """
     history = read_history(auto_purge=True)
     failed_id = get_next_sequential_id("FAIL")
@@ -243,7 +243,7 @@ def save_failed_extraction(
             sync_db = sync_client["utility_bot"]
             sync_col = sync_db["verifications"]
             sync_col.replace_one({"_id": failed_id}, record, upsert=True)
-            print(f"[Utility Bot Storage] Synced failed upload {failed_id} to MongoDB Atlas cloud!")
+            print(f"[Utility Bot Storage] Synced failed record {failed_id} to MongoDB Atlas cloud!")
         except Exception as err:
             print(f"[Utility Bot Storage] MongoDB sync notice for failure: {err}")
             
