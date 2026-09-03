@@ -84,6 +84,111 @@
 
 ---
 
+## 🗺️ Visual Mermaid Flowchart (Graphical Architecture)
+
+```mermaid
+flowchart TD
+    subgraph INTAKE["1. Physical Intake Layer"]
+        A1["🪪 Aadhaar Front"] --> UPLOAD["Multi-Format Upload Stream"]
+        A2["🪪 Aadhaar Back"] --> UPLOAD
+        A3["💳 PAN Card"] --> UPLOAD
+        A4["🚗 DL Front & Back"] --> UPLOAD
+    end
+
+    subgraph PREPROC["2. Computer Vision & OCR Engine"]
+        UPLOAD --> CV1["OpenCV Contrast & Glare Removal"]
+        CV1 --> OCR["Tesseract OCR & 2D Spatial Coordinates"]
+        OCR --> GATE{"Genuine Govt ID?"}
+        GATE -- "No (Receipt / Bill)" --> REJECT["⛔ Instant 0.05s Rejection"]
+    end
+
+    subgraph AI["3. AI Semantic Extraction Engine"]
+        GATE -- "Yes (Aadhaar / PAN / DL)" --> LLM["Groq LPU (Llama 3.3 70B)"]
+        LLM --> NORM["Pydantic Normalization & Verhoeff Checksum"]
+        NORM --> MASK["UIDAI Privacy Masking (********7645)"]
+    end
+
+    subgraph UI["4. Human-in-the-Loop Dashboard UI"]
+        MASK --> PREVIEW["Live Output UI (Photo + Fields Preview)"]
+        PREVIEW --> CHOICE{"User Confirmation"}
+    end
+
+    subgraph STORAGE["5. Dual-Collection Cloud Database"]
+        CHOICE -- "✓ Correct" --> CONFIRM["Assign IMG000001 (Status: Success)"]
+        CONFIRM --> DB1[("MongoDB: verifications")]
+        CONFIRM --> HIST["✅ Shown on Public History Page"]
+
+        CHOICE -- "✗ Wrong" --> WRONG["Assign FAIL000001 (Status: Failed)"]
+        WRONG --> DB2[("MongoDB: failed_verifications")]
+        WRONG --> AUDIT["🔒 Hidden from History (Audit Log)"]
+        WRONG --> ACTIONS["Two Action Options: 1. 🔄 Retry | 2. 📁 Upload New"]
+    end
+
+    classDef success fill:#dcfce7,stroke:#16a34a,stroke-width:2px;
+    classDef fail fill:#fee2e2,stroke:#dc2626,stroke-width:2px;
+    classDef intake fill:#e0f2fe,stroke:#0284c7,stroke-width:2px;
+    classDef engine fill:#f3e8ff,stroke:#9333ea,stroke-width:2px;
+
+    class CONFIRM,DB1,HIST success;
+    class WRONG,DB2,AUDIT,REJECT fail;
+    class A1,A2,A3,A4,UPLOAD intake;
+    class CV1,OCR,LLM,NORM,MASK engine;
+```
+
+---
+
+## 🖥️ Physical Hardware & Network Deployment Diagram
+
+```text
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                          EDGE CLIENT / OPERATOR WORKSTATION                            │
+│                                                                                        │
+│   ┌───────────────────────────┐                     ┌──────────────────────────────┐   │
+│   │ 📷 Physical Input Devices │                     │ 🌐 Modern Web Browser (SPA)  │   │
+│   │ • 48MP Smartphone Camera  │ ─── File Stream ──> │ • React 18 UI (Vite Engine)  │   │
+│   │ • Flatbed Document Scanner│                     │ • Port: 5173 (HTTP/HTTPS)    │   │
+│   │ • High-Def HD Webcam      │                     │ • Device ID: localStorage    │   │
+│   └───────────────────────────┘                     └──────────────┬───────────────┘   │
+└────────────────────────────────────────────────────────────────────┼───────────────────┘
+                                                                     │ REST API / JSON
+                                                                     │ X-Device-Id Header
+                                                                     │ (Port: 8000)
+                                                                     ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                        ON-PREMISES / CONTAINER APPLICATION SERVER                      │
+│                                                                                        │
+│   ┌────────────────────────────────────────────────────────────────────────────────┐   │
+│   │ 🚀 FastAPI Application Gateway (Uvicorn Worker @ Port 8000)                    │   │
+│   ├────────────────────────────────────────────────────────────────────────────────┤   │
+│   │ 🧠 In-Memory RAM Workspace (`io.BytesIO`)                                      │   │
+│   │    • 100% Volatile RAM Execution (Zero disk writes of raw customer photos)     │   │
+│   ├────────────────────────────────────────────────────────────────────────────────┤   │
+│   │ 👁️ Native Vision & OCR Subsystems                                              │   │
+│   │    • OpenCV 4.x (C++ SIMD-Accelerated Denoising & Adaptive Binarization)       │   │
+│   │    • Tesseract OCR v5.5.x Engine (Native Binary with English & Devanagari)     │   │
+│   │    • UIDAI Verhoeff Validation & Masking Subsystem                             │   │
+│   └───────────────────────────┬────────────────────────────────┬───────────────────┘   │
+└───────────────────────────────┼────────────────────────────────┼───────────────────────┘
+                                │                                │
+             TLS 1.3 / HTTPS    │                                │ TLS 1.3 / Certifi SSL
+             Port 443           │                                │ Port 27017
+                                ▼                                ▼
+┌───────────────────────────────────────────────┐ ┌──────────────────────────────────────┐
+│ ⚡ GROQ CLOUD LPU INFERENCE ACCELERATOR        │ │ ☁️ MONGODB ATLAS CLOUD (REPLICA SET) │
+│ • Llama 3.3 70B Versatile Neural Engine       │ │ • Multi-Region Cloud Cluster         │
+│ • 600 Tokens/Sec Super-Low Latency Inference  │ │                                      │
+│ • Structured JSON Output Schema Validation    │ │ 📁 Collection: `verifications`       │
+│ • Temperature: 0.1 (Strict Hallucination-Free)│ │    (All Confirmed IMG... Records)    │
+│                                               │ │                                      │
+│                                               │ │ 📁 Collection: `failed_verifications`│
+│                                               │ │    (All Rejected FAIL... Records)    │
+│                                               │ │                                      │
+│                                               │ │ ⏳ 30-Day TTL Auto-Purge Worker      │
+└───────────────────────────────────────────────┘ └──────────────────────────────────────┘
+```
+
+---
+
 ## 🚀 Key Capabilities & Modules
 
 ### 1. 🪪 Dual-Side Aadhaar & Driving Licence Intelligence
