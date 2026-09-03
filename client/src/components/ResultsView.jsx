@@ -18,22 +18,57 @@ import {
   Check
 } from 'lucide-react';
 
-export default function ResultsView({ result, onUploadAnother }) {
+export default function ResultsView({ result, onConfirm, onRetry, onReupload, onUploadAnother }) {
   if (!result) return null;
 
-  const { document_type, is_valid, short_circuited, is_duplicate_or_sample, authenticity_status, data, warnings, images } = result;
+  const { 
+    document_type, 
+    is_valid, 
+    short_circuited, 
+    is_duplicate_or_sample, 
+    authenticity_status, 
+    data, 
+    warnings, 
+    images,
+    image_id,
+    failed_id,
+    date,
+    time,
+    status
+  } = result;
 
   // Local editable state for human-in-the-loop editing
   const [formData, setFormData] = useState(data || {});
-  const [editingField, setEditingField] = useState(null);
+  const [isConfirmed, setIsConfirmed] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     setFormData(data || {});
-  }, [data]);
+    setIsConfirmed(false);
+  }, [data, result]);
 
   const handleFieldChange = (field, val) => {
     setFormData(prev => ({ ...prev, [field]: val }));
   };
+
+  const handleConfirmClick = async () => {
+    setIsSaving(true);
+    try {
+      if (onConfirm) {
+        await onConfirm(formData);
+      }
+      setIsConfirmed(true);
+    } catch (e) {
+      console.error('Confirm error:', e);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const displayId = image_id || failed_id || result.id || 'IMG000001';
+  const displayDate = date || new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
+  const displayTime = time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const displayStatus = status || (short_circuited ? 'Failed' : 'Success');
 
   // Document Badge Colors for Light Theme
   const getBadge = () => {
@@ -114,10 +149,23 @@ export default function ResultsView({ result, onUploadAnother }) {
       {/* Main Extracted Card */}
       <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm">
         
-        {/* Card Header & 30-Day Expiry Tag */}
+        {/* Card Header with Sequential Image ID, Date, Time & Status */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
           <div>
-            <div className="mb-1.5">{getBadge()}</div>
+            <div className="flex items-center space-x-2 mb-2 flex-wrap gap-y-1">
+              <span className="text-xs font-bold font-mono px-2.5 py-1 rounded-md bg-sky-100 text-sky-800 border border-sky-300 shadow-sm">
+                ID: {displayId}
+              </span>
+              <span className={`text-xs font-bold px-2.5 py-1 rounded-md inline-flex items-center space-x-1.5 border shadow-sm ${
+                displayStatus === 'Success' 
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300' 
+                  : 'bg-rose-50 text-rose-700 border-rose-300'
+              }`}>
+                <span className={`w-2 h-2 rounded-full ${displayStatus === 'Success' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></span>
+                <span>Status: {displayStatus}</span>
+              </span>
+              {getBadge()}
+            </div>
             <h2 className="text-xl font-bold text-slate-900 tracking-tight">
               {document_type === 'unsupported' 
                 ? 'Verification Declined' 
@@ -125,9 +173,15 @@ export default function ResultsView({ result, onUploadAnother }) {
             </h2>
           </div>
           
-          <div className="flex items-center space-x-1.5 px-3 py-1 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold self-start sm:self-auto">
-            <Clock className="w-3.5 h-3.5" />
-            <span>Utility Bot 30-Day Storage</span>
+          <div className="flex flex-col sm:items-end text-xs text-slate-500 space-y-1 self-start sm:self-auto">
+            <div className="flex items-center space-x-1.5 px-3 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-700 font-medium">
+              <Calendar className="w-3.5 h-3.5 text-sky-600" />
+              <span>{displayDate}</span>
+              <span>•</span>
+              <Clock className="w-3.5 h-3.5 text-indigo-600" />
+              <span>{displayTime}</span>
+            </div>
+            <span className="text-[10px] text-slate-400">30-Day Auto Retention</span>
           </div>
         </div>
 
@@ -542,6 +596,81 @@ export default function ResultsView({ result, onUploadAnother }) {
                   )}
                 </>
               )}
+
+            </div>
+
+            {/* CONFIRMATION / ACTION TOOLBAR */}
+            <div className="mt-8 pt-6 border-t border-slate-200">
+              
+              {/* Success Confirmation Toast Banner */}
+              {isConfirmed && (
+                <div className="mb-4 p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-300 shadow-sm">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 rounded-lg bg-emerald-600 text-white">
+                      <Check className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-emerald-950">Record Confirmed & Verified!</h4>
+                      <p className="text-xs text-emerald-700">
+                        Saved to database as <strong className="font-mono">{displayId}</strong> on {displayDate} at {displayTime}.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold px-3 py-1 bg-emerald-200 text-emerald-800 rounded-full">
+                    ✓ Verified in History
+                  </span>
+                </div>
+              )}
+
+              {/* Action Buttons Row */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="text-xs text-slate-500 flex items-center space-x-1.5">
+                  <Edit2 className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Click any field above to edit or correct values before confirming.</span>
+                </div>
+
+                <div className="flex items-center space-x-3 w-full sm:w-auto">
+                  
+                  {/* Button 1: ✓ Correct */}
+                  <button
+                    onClick={handleConfirmClick}
+                    disabled={isSaving || isConfirmed}
+                    className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition flex items-center justify-center space-x-2 cursor-pointer ${
+                      isConfirmed
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 cursor-default'
+                        : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20 active:scale-95'
+                    }`}
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>{isSaving ? 'Saving...' : isConfirmed ? '✓ Confirmed' : '✓ Correct'}</span>
+                  </button>
+
+                  {/* Button 2: 🔄 Retry */}
+                  {onRetry && (
+                    <button
+                      onClick={onRetry}
+                      className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl font-bold text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition flex items-center justify-center space-x-1.5 shadow-sm active:scale-95 cursor-pointer"
+                      title="Process the same image again"
+                    >
+                      <RotateCcw className="w-4 h-4 text-slate-600" />
+                      <span>Retry</span>
+                    </button>
+                  )}
+
+                  {/* Button 3: 📁 Re-upload Image */}
+                  {(onReupload || onUploadAnother) && (
+                    <button
+                      onClick={onReupload || onUploadAnother}
+                      className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl font-bold text-xs bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-300 transition flex items-center justify-center space-x-1.5 shadow-sm active:scale-95 cursor-pointer"
+                      title="Upload a new and clearer image"
+                    >
+                      <ImageIcon className="w-4 h-4 text-sky-600" />
+                      <span>Re-upload Image</span>
+                    </button>
+                  )}
+
+                </div>
+              </div>
 
             </div>
 

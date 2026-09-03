@@ -6,7 +6,7 @@ import ResultsView from './components/ResultsView';
 import VisualPipeline from './components/VisualPipeline';
 import JsonViewer from './components/JsonViewer';
 import HistoryDrawer from './components/HistoryDrawer';
-import { extractDocumentApi, getHealthApi } from './services/api';
+import { extractDocumentApi, getHealthApi, confirmExtractionApi } from './services/api';
 import { Sparkles, Eye, FileText, Code, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
 
 export default function App() {
@@ -55,6 +55,18 @@ export default function App() {
       setErrorMessage(msg);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleConfirm = async (updatedData) => {
+    const docId = extractionResult?.id || extractionResult?.image_id;
+    if (docId) {
+      await confirmExtractionApi(docId, updatedData);
+      setExtractionResult(prev => ({
+        ...prev,
+        data: updatedData,
+        confirmed: true
+      }));
     }
   };
 
@@ -195,6 +207,9 @@ export default function App() {
             {activeTab === 'fields' && (
               <ResultsView 
                 result={extractionResult} 
+                onConfirm={handleConfirm}
+                onRetry={handleExtract}
+                onReupload={handleClear}
                 onUploadAnother={handleClear}
               />
             )}

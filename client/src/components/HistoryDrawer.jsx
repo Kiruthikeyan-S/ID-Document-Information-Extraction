@@ -73,15 +73,17 @@ export default function HistoryDrawer({ isOpen, onClose, onSelectDocument }) {
 
   const filteredHistory = history.filter((doc) => {
     const term = search.toLowerCase();
+    const imageId = (doc.imageId || doc._id || '').toLowerCase();
     const docType = (doc.documentType || '').toLowerCase();
     const name = (doc.data?.name || '').toLowerCase();
+    const dateStr = (doc.date || '').toLowerCase();
     const idNum = (
       doc.data?.aadhaar_number ||
       doc.data?.pan_number ||
       doc.data?.dl_number ||
       ''
     ).toLowerCase();
-    return docType.includes(term) || name.includes(term) || idNum.includes(term);
+    return imageId.includes(term) || docType.includes(term) || name.includes(term) || idNum.includes(term) || dateStr.includes(term);
   });
 
   return (
@@ -219,21 +221,29 @@ export default function HistoryDrawer({ isOpen, onClose, onSelectDocument }) {
 
                   {/* Info */}
                   <div className="overflow-hidden flex-1">
-                    <div className="flex items-center space-x-2 mb-0.5">
-                      <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200">
+                    <div className="flex items-center space-x-1.5 mb-1 flex-wrap gap-y-1">
+                      <span className="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 border border-sky-300">
+                        {doc.imageId || doc._id}
+                      </span>
+                      <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
                         {doc.documentType || 'document'}
                       </span>
-                      <span className="text-[10px] font-medium text-amber-700 flex items-center space-x-0.5">
-                        <Clock className="w-2.5 h-2.5" />
-                        <span>{getDaysRemaining(doc.createdAt)}</span>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center space-x-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        <span>Success</span>
                       </span>
                     </div>
                     <h4 className="text-xs font-bold text-slate-800 truncate">
                       {doc.data?.name || doc.originalFileName || 'Unnamed Applicant'}
                     </h4>
-                    <p className="text-[11px] font-mono text-slate-500 truncate">
-                      {doc.data?.aadhaar_number || doc.data?.pan_number || doc.data?.dl_number || 'No ID'}
-                    </p>
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 mt-0.5">
+                      <span className="font-mono truncate max-w-[140px]">
+                        {doc.data?.aadhaar_number || doc.data?.pan_number || doc.data?.dl_number || 'No ID'}
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        {doc.date && doc.time ? `${doc.date} • ${doc.time}` : getDaysRemaining(doc.createdAt)}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Actions */}

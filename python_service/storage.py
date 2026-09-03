@@ -86,39 +86,74 @@ def write_history(data: List[Dict[str, Any]]) -> None:
         print(f"[Utility Bot Storage] Error writing history: {e}")
 
 
+def get_next_sequential_id(prefix: str = "IMG") -> str:
+    """
+    Generates the next sequential ID (e.g., IMG000001 or FAIL000001).
+    Scans existing records to determine the next increment.
+    """
+    history = read_history(auto_purge=False)
+    max_num = 0
+    for doc in history:
+        doc_id = str(doc.get("_id") or doc.get("imageId") or doc.get("failedId") or "")
+        if doc_id.startswith(prefix):
+            try:
+                num_part = int(doc_id[len(prefix):])
+                if num_part > max_num:
+                    max_num = num_part
+            except ValueError:
+                pass
+    next_num = max_num + 1
+    return f"{prefix}{next_num:06d}"
+
+
 def save_extraction(
     result_dict: Dict[str, Any], 
     original_filename: str = "document.jpg",
     thumbnail_image: Optional[str] = None,
-    device_id: Optional[str] = None
+    device_id: Optional[str] = None,
+    is_success: bool = True
 ) -> str:
-    """Saves document verification extraction with 30-day retention, photo thumbnail, and device isolation."""
+    """Saves document verification extraction with IMG000001 sequential ID, date, time, and 30-day retention."""
     history = read_history(auto_purge=True)
-    doc_id = f"doc_{int(datetime.now().timestamp())}_{uuid.uuid4().hex[:6]}"
+    
+    prefix = "IMG" if is_success else "FAIL"
+    doc_id = get_next_sequential_id(prefix)
     
     clean_data = result_dict.get("data", {})
     if hasattr(clean_data, "dict"):
         clean_data = clean_data.dict()
 
-    now = datetime.utcnow()
-    expires_at = now + timedelta(days=RETENTION_DAYS)
+    now_local = datetime.now()
+    now_utc = datetime.utcnow()
+    expires_at = now_utc + timedelta(days=RETENTION_DAYS)
+
+    formatted_date = now_local.strftime("%d-%m-%Y")
+    formatted_time = now_local.strftime("%I:%M %p")
 
     record = {
         "_id": doc_id,
-        "deviceId": device_id or "default_client",  # Device ID Isolation
+        "imageId": doc_id if is_success else None,
+        "failedId": doc_id if not is_success else None,
+        "deviceId": device_id or "default_client",
         "documentType": result_dict.get("document_type", "unsupported"),
-        "isValid": result_dict.get("is_valid", True),
+        "status": "Success" if is_success else "Failed",
+        "isValid": result_dict.get("is_valid", is_success),
         "shortCircuited": result_dict.get("short_circuited", False),
         "isDuplicateOrSample": result_dict.get("is_duplicate_or_sample", False),
         "authenticityStatus": result_dict.get("authenticity_status", "VERIFIED"),
         "data": clean_data,
+        "extractedData": clean_data,
         "warnings": result_dict.get("warnings", []),
         "ocrConfidence": result_dict.get("ocr_confidence", 0.0),
         "qualityReport": result_dict.get("quality_report", {}),
         "rawOcrText": result_dict.get("raw_ocr_text", ""),
         "originalFileName": original_filename,
-        "thumbnail": thumbnail_image,  # Stored photo thumbnail (~40KB) for history preview
-        "createdAt": now.isoformat() + "Z",
+        "image": thumbnail_image,
+        "thumbnail": thumbnail_image,
+        "date": formatted_date,
+        "time": formatted_time,
+        "confirmed": False,
+        "createdAt": now_utc.isoformat() + "Z",
         "expiresAt": expires_at.isoformat() + "Z",
         "retentionDays": RETENTION_DAYS,
     }
@@ -150,16 +185,129 @@ def save_extraction(
     return doc_id
 
 
+def save_failed_extraction(
+    original_filename: str = "document.jpg",
+    thumbnail_image: Optional[str] = None,
+    error_message: str = "Document processing failed",
+    device_id: Optional[str] = None,
+    raw_ocr_text: str = ""
+) -> str:
+    """
+    Saves failed image uploads with FAIL000001 ID, date, and time.
+    Stored for internal use and compliance, but filtered out from public History page.
+    """
+    history = read_history(auto_purge=True)
+    failed_id = get_next_sequential_id("FAIL")
+    
+    now_local = datetime.now()
+    now_utc = datetime.utcnow()
+    expires_at = now_utc + timedelta(days=RETENTION_DAYS)
+    
+    formatted_date = now_local.strftime("%d-%m-%Y")
+    formatted_time = now_local.strftime("%I:%M %p")
+
+    record = {
+        "_id": failed_id,
+        "failedId": failed_id,
+        "deviceId": device_id or "default_client",
+        "documentType": "failed_upload",
+        "status": "Failed",
+        "isValid": False,
+        "error": error_message,
+        "originalFileName": original_filename,
+        "image": thumbnail_image,
+        "thumbnail": thumbnail_image,
+        "date": formatted_date,
+        "time": formatted_time,
+        "rawOcrText": raw_ocr_text,
+        "createdAt": now_utc.isoformat() + "Z",
+        "expiresAt": expires_at.isoformat() + "Z",
+        "retentionDays": RETENTION_DAYS,
+    }
+    
+    history.insert(0, record)
+    if len(history) > 300:
+        history = history[:300]
+    write_history(history)
+    
+    if mongo_collection is not None:
+        try:
+            import pymongo
+            import certifi
+            sync_client = pymongo.MongoClient(
+                MONGODB_URI, 
+                tlsCAFile=certifi.where(),
+                tlsAllowInvalidCertificates=True,
+                serverSelectionTimeoutMS=2000
+            )
+            sync_db = sync_client["utility_bot"]
+            sync_col = sync_db["verifications"]
+            sync_col.replace_one({"_id": failed_id}, record, upsert=True)
+            print(f"[Utility Bot Storage] Synced failed upload {failed_id} to MongoDB Atlas cloud!")
+        except Exception as err:
+            print(f"[Utility Bot Storage] MongoDB sync notice for failure: {err}")
+            
+    return failed_id
+
+
+def confirm_or_update_extraction(
+    doc_id: str, 
+    updated_data: Dict[str, Any],
+    device_id: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
+    """Updates and marks a verification record as confirmed when user clicks '✓ Correct'."""
+    history = read_history(auto_purge=False)
+    updated_record = None
+    for doc in history:
+        if doc.get("_id") == doc_id or doc.get("imageId") == doc_id:
+            if device_id and device_id != "admin_all" and doc.get("deviceId") != device_id:
+                return None
+            doc["data"] = updated_data
+            doc["extractedData"] = updated_data
+            doc["confirmed"] = True
+            doc["status"] = "Success"
+            updated_record = doc
+            break
+            
+    if updated_record:
+        write_history(history)
+        if mongo_collection is not None:
+            try:
+                import pymongo
+                import certifi
+                sync_client = pymongo.MongoClient(
+                    MONGODB_URI, 
+                    tlsCAFile=certifi.where(),
+                    tlsAllowInvalidCertificates=True,
+                    serverSelectionTimeoutMS=2000
+                )
+                sync_db = sync_client["utility_bot"]
+                sync_col = sync_db["verifications"]
+                sync_col.replace_one({"_id": doc_id}, updated_record, upsert=True)
+            except Exception as err:
+                print(f"[Utility Bot Storage] MongoDB update notice: {err}")
+        return updated_record
+    return None
+
+
 def get_history(
     limit: int = 50, 
     page: int = 1, 
     doc_type: Optional[str] = None,
-    device_id: Optional[str] = None
+    device_id: Optional[str] = None,
+    include_failed: bool = False
 ) -> Dict[str, Any]:
-    """Retrieves verification records filtered by Device ID for strict user privacy."""
+    """
+    Retrieves verification records for the History page.
+    Failed records are filtered out and NOT shown on the user History page.
+    """
     history = read_history(auto_purge=True)
     
-    # Filter by Device ID if provided (Strict User Privacy Isolation)
+    # 1. Filter out Failed records for client-facing History page
+    if not include_failed:
+        history = [d for d in history if d.get("status") != "Failed"]
+
+    # 2. Filter by Device ID if provided
     if device_id and device_id != "admin_all":
         history = [d for d in history if d.get("deviceId") == device_id]
         

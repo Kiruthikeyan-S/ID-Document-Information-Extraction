@@ -110,6 +110,11 @@ ExtractedData = Union[
 class FinalExtractionResult(BaseModel):
     """Final unified payload returned to the UI/API."""
     id: Optional[str] = Field(None, description="Unique stored document ID")
+    image_id: Optional[str] = Field(None, description="Sequential image ID e.g. IMG000001")
+    failed_id: Optional[str] = Field(None, description="Sequential failed ID e.g. FAIL000001")
+    date: Optional[str] = Field(None, description="Formatted extraction date e.g. 03-09-2026")
+    time: Optional[str] = Field(None, description="Formatted extraction time e.g. 12:45 PM")
+    status: str = Field("Success", description="Processing status: Success or Failed")
     document_type: str
     is_valid: bool = Field(True, description="True if document is supported and validly parsed")
     short_circuited: bool = Field(False, description="True if decision gate rejected before LLM call")

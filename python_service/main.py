@@ -22,7 +22,16 @@ from document_classifier import classify_document_heuristics
 from llm_extractor import extract_document_info, get_available_models
 from validation import validate_and_clean_extraction
 from utils import pil_to_cv2, cv2_to_base64, logger
-from storage import save_extraction, get_history, get_extraction_by_id, delete_extraction_by_id, get_storage_stats, clean_storage
+from storage import (
+    save_extraction, 
+    save_failed_extraction, 
+    confirm_or_update_extraction,
+    get_history, 
+    get_extraction_by_id, 
+    delete_extraction_by_id, 
+    get_storage_stats, 
+    clean_storage
+)
 
 app = FastAPI(
     title="Utility Bot - Verification Document API",
@@ -116,6 +125,23 @@ def trigger_storage_cleanup(
     return clean_storage(device_id=x_device_id, force_all=force_all)
 
 
+@app.post("/history/{doc_id}/confirm")
+def confirm_history_record(
+    doc_id: str,
+    payload: dict,
+    x_device_id: Optional[str] = Header(None, alias="X-Device-Id")
+):
+    """Marks extraction record as confirmed and saves any user-edited field values."""
+    updated = confirm_or_update_extraction(
+        doc_id=doc_id,
+        updated_data=payload.get("data", payload),
+        device_id=x_device_id
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Document record not found or not authorized.")
+    return {"status": "success", "message": "Document confirmed & saved to history.", "record": updated}
+
+
 @app.post("/extract", response_model=FinalExtractionResult)
 async def extract_document(
     file: UploadFile = File(...),
@@ -133,18 +159,18 @@ async def extract_document(
 ):
     """
     Main extraction pipeline endpoint with Pre-LLM Decision Gate.
-    
-    1. Reads & validates uploaded image.
-    2. Runs quality & blur assessment.
-    3. Runs OpenCV preprocessing.
-    4. Runs local Tesseract OCR & draws bounding boxes.
-    5. DECISION GATE: Evaluates document signatures. If unsupported, skips Groq LLM call immediately.
-    6. Calls Groq LLM (if supported).
-    7. Validates & normalizes fields (Pydantic / Regex).
-    8. Returns structured JSON + base64 visual pipeline images.
+    Stores successful uploads as IMG000001 (shown in History) 
+    and failed uploads as FAIL000001 (hidden from client History).
     """
+    active_device = x_device_id or deviceId or "default_client"
+
     # 1. Validate file format
     if not file.content_type.startswith("image/"):
+        save_failed_extraction(
+            original_filename=file.filename or "unknown.file",
+            error_message="Uploaded file is not a valid image format.",
+            device_id=active_device
+        )
         raise HTTPException(status_code=400, detail="Uploaded file must be a valid image (JPG, JPEG, PNG).")
 
     try:
@@ -154,6 +180,11 @@ async def extract_document(
             pil_image = pil_image.convert("RGB")
         cv2_orig = pil_to_cv2(pil_image)
     except Exception as e:
+        save_failed_extraction(
+            original_filename=file.filename or "corrupted.jpg",
+            error_message=f"Failed to decode image: {str(e)}",
+            device_id=active_device
+        )
         raise HTTPException(status_code=400, detail=f"Failed to decode image: {str(e)}")
 
     # 2. Image Quality & Blur Check
@@ -180,6 +211,12 @@ async def extract_document(
         cv2_annotated = draw_bounding_boxes(cv2_orig, ocr_result, show_confidence=True)
     except Exception as e:
         logger.error(f"OCR Error: {e}")
+        save_failed_extraction(
+            original_filename=file.filename or "document.jpg",
+            thumbnail_image=cv2_to_base64(cv2_orig, quality=60),
+            error_message=f"OCR Engine error: {str(e)}",
+            device_id=active_device
+        )
         raise HTTPException(status_code=500, detail=f"OCR Processing failed: {str(e)}")
 
     # Encode images for visual pipeline
@@ -195,7 +232,17 @@ async def extract_document(
             document_type="unsupported",
             error="No readable text detected in the image. Please verify lighting and focus."
         )
+        failed_id = save_failed_extraction(
+            original_filename=file.filename or "document.jpg",
+            thumbnail_image=pipeline_images.get("original"),
+            error_message="No readable text detected by OCR engine.",
+            device_id=active_device,
+            raw_ocr_text=""
+        )
         return FinalExtractionResult(
+            id=failed_id,
+            failed_id=failed_id,
+            status="Failed",
             document_type="unsupported",
             is_valid=False,
             short_circuited=True,
@@ -217,7 +264,17 @@ async def extract_document(
             document_type="unsupported",
             error="Decision Gate: Document does not match Indian Aadhaar, PAN, or Driving Licence patterns. LLM processing skipped."
         )
-        res = FinalExtractionResult(
+        failed_id = save_failed_extraction(
+            original_filename=file.filename or "document.jpg",
+            thumbnail_image=pipeline_images.get("original"),
+            error_message="Rejected by Pre-LLM Decision Gate (Non-ID document detected).",
+            device_id=active_device,
+            raw_ocr_text=ocr_result.raw_text
+        )
+        return FinalExtractionResult(
+            id=failed_id,
+            failed_id=failed_id,
+            status="Failed",
             document_type="unsupported",
             is_valid=False,
             short_circuited=True,
@@ -228,14 +285,6 @@ async def extract_document(
             quality_report=quality_report,
             images=pipeline_images
         )
-        active_device = x_device_id or deviceId or "default_client"
-        res.id = save_extraction(
-            result_dict=res.model_dump() if hasattr(res, 'model_dump') else res.dict(),
-            original_filename=file.filename or "document.jpg",
-            thumbnail_image=pipeline_images.get("original"),
-            device_id=active_device
-        )
-        return res
 
     # 6. Groq LLM API Call (Only for supported IDs)
     heuristic_hint_str = f"Found pattern matching for: {heuristic_type.upper()}" if heuristic_type != "unsupported" else None
@@ -261,15 +310,21 @@ async def extract_document(
         short_circuited=False
     )
 
-    # 8. Save extraction to persistent history store with 30-day retention, photo thumbnail & device isolation
-    active_device = x_device_id or deviceId or "default_client"
+    # 8. Save extraction to persistent history store with IMG000001 sequential ID, date, time & 30-day retention
+    from datetime import datetime
+    now_local = datetime.now()
     doc_id = save_extraction(
         result_dict=final_result.model_dump() if hasattr(final_result, 'model_dump') else final_result.dict(),
         original_filename=file.filename or "document.jpg",
         thumbnail_image=pipeline_images.get("original"),
-        device_id=active_device
+        device_id=active_device,
+        is_success=True
     )
     final_result.id = doc_id
+    final_result.image_id = doc_id
+    final_result.date = now_local.strftime("%d-%m-%Y")
+    final_result.time = now_local.strftime("%I:%M %p")
+    final_result.status = "Success"
 
     return final_result
 

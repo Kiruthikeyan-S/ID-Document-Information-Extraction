@@ -141,6 +141,14 @@ export const getDocumentByIdApi = async (id) => {
 };
 
 /**
+ * Confirms extraction record and updates any edited fields.
+ */
+export const confirmExtractionApi = async (id, updatedData) => {
+  const response = await api.post(`/history/${id}/confirm`, { data: updatedData });
+  return response.data;
+};
+
+/**
  * Deletes extraction record by ID.
  */
 export const deleteDocumentApi = async (id) => {
