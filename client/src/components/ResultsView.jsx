@@ -54,10 +54,16 @@ export default function ResultsView({
 
   useEffect(() => {
     setFormData(data || {});
-    setConfirmationState('pending');
-    setConfirmedId(image_id || null);
-    setLoggedFailedId(failed_id || null);
-  }, [data, result]);
+    if (result?.confirmed) {
+      setConfirmationState('correct');
+    } else if (result?.status === 'Failed' && result?.failed_id) {
+      setConfirmationState('wrong');
+    } else if (!result?.id && !result?.image_id && !result?.failed_id) {
+      setConfirmationState('pending');
+    }
+    if (image_id) setConfirmedId(image_id);
+    if (failed_id) setLoggedFailedId(failed_id);
+  }, [result?.raw_ocr_text, result?.document_type]);
 
   const handleFieldChange = (field, val) => {
     setFormData(prev => ({ ...prev, [field]: val }));
@@ -686,13 +692,13 @@ export default function ResultsView({
                       </div>
                       <div>
                         <div className="flex items-center space-x-2">
-                          <h4 className="text-base font-bold text-emerald-950">Record Confirmed & Saved!</h4>
+                          <h4 className="text-base font-bold text-emerald-950">✓ Successfully Uploaded & Verified!</h4>
                           <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-200 text-emerald-900 border border-emerald-300">
                             {displayId}
                           </span>
                         </div>
                         <p className="text-xs text-emerald-800 mt-1">
-                          Successfully verified and saved to database on <strong>{displayDate}</strong> at <strong>{displayTime}</strong>.
+                          Saved to database on <strong>{displayDate}</strong> at <strong>{displayTime}</strong>. This record is now saved in your <strong>History Page</strong>.
                         </p>
                       </div>
                     </div>
@@ -709,7 +715,7 @@ export default function ResultsView({
                       className="px-6 py-2.5 rounded-xl font-bold text-xs bg-sky-600 hover:bg-sky-500 text-white shadow-md shadow-sky-600/20 transition flex items-center space-x-2 cursor-pointer active:scale-95"
                     >
                       <ImageIcon className="w-4 h-4" />
-                      <span>Upload Next Document</span>
+                      <span>Upload Another File / Go to Home</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -746,20 +752,20 @@ export default function ResultsView({
 
                   {/* The 2 Clear Next Action Buttons: Retry and Upload New Image */}
                   <div className="pt-3 border-t border-rose-200/60 flex flex-col sm:flex-row items-center justify-between gap-3">
-                    <span className="text-xs text-rose-800 font-medium">What would you like to do next?</span>
+                    <span className="text-xs text-rose-800 font-medium">Please choose your next action:</span>
 
                     <div className="flex items-center gap-3 w-full sm:w-auto">
-                      {/* Button 1: Retry */}
+                      {/* Option 1: Retry */}
                       <button
                         type="button"
                         onClick={onRetry}
                         className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl font-bold text-xs bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-white shadow-md transition flex items-center justify-center space-x-2 cursor-pointer active:scale-95"
                       >
                         <RotateCcw className="w-4 h-4 text-slate-300" />
-                        <span>Retry</span>
+                        <span>Retry Same Image</span>
                       </button>
 
-                      {/* Button 2: Upload New Image */}
+                      {/* Option 2: Upload New Image */}
                       <button
                         type="button"
                         onClick={onUploadNew || onReupload || onUploadAnother}
