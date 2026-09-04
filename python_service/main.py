@@ -25,6 +25,7 @@ from utils import pil_to_cv2, cv2_to_base64, logger
 from storage import (
     save_confirmed_record, 
     save_rejected_record, 
+    save_failed_extraction,
     confirm_or_update_extraction,
     get_history, 
     get_failed_history,

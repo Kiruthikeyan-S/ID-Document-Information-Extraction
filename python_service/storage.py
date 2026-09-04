@@ -276,6 +276,9 @@ def save_rejected_record(
     return failed_id
 
 
+save_failed_extraction = save_rejected_record
+
+
 def get_failed_history(
     limit: int = 50, 
     page: int = 1, 
