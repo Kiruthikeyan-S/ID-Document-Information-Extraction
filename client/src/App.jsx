@@ -39,14 +39,17 @@ export default function App() {
       });
   }, []);
 
-  const handleExtract = async () => {
+  const [isRetryLoading, setIsRetryLoading] = useState(false);
+
+  const handleExtract = async (isRetry = false) => {
     if (!selectedFile) return;
 
     setIsLoading(true);
+    setIsRetryLoading(isRetry);
     setErrorMessage(null);
 
     try {
-      const result = await extractDocumentApi(selectedFile, settings);
+      const result = await extractDocumentApi(selectedFile, settings, isRetry);
       // Explicitly mark fresh extraction as Pending confirmation with a unique timestamp token
       result.extraction_timestamp = Date.now();
       result.status = 'Pending';
@@ -54,6 +57,7 @@ export default function App() {
       result.image_id = null;
       result.failed_id = null;
       result.confirmed = false;
+      result.is_retry_scan = isRetry;
 
       setExtractionResult(result);
       setActiveTab('fields');
@@ -63,6 +67,7 @@ export default function App() {
       setErrorMessage(msg);
     } finally {
       setIsLoading(false);
+      setIsRetryLoading(false);
     }
   };
 
@@ -250,7 +255,7 @@ export default function App() {
                 result={extractionResult} 
                 onCorrect={handleCorrect}
                 onWrong={handleWrong}
-                onRetry={handleExtract}
+                onRetry={() => handleExtract(true)}
                 onUploadNew={handleClear}
                 onReupload={handleClear}
                 onUploadAnother={handleClear}

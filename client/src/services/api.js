@@ -102,10 +102,13 @@ api.interceptors.request.use((config) => {
 /**
  * Uploads ID document image directly to Python FastAPI backend.
  */
-export const extractDocumentApi = async (file, settings = {}) => {
+export const extractDocumentApi = async (file, settings = {}, isRetry = false) => {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('deviceId', getDeviceId());
+  if (isRetry) {
+    formData.append('is_retry', 'true');
+  }
 
   Object.entries(settings).forEach(([key, value]) => {
     if (value !== undefined && value !== null) {

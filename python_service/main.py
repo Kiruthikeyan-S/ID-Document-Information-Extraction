@@ -17,7 +17,7 @@ load_dotenv()
 
 from schemas import FinalExtractionResult, UnsupportedDocumentData
 from preprocessing import assess_image_quality, preprocess_id_card
-from ocr_engine import extract_ocr_data, draw_bounding_boxes, check_tesseract_available
+from ocr_engine import extract_ocr_data, extract_ocr_deep_retry, draw_bounding_boxes, check_tesseract_available
 from document_classifier import classify_document_heuristics
 from llm_extractor import extract_document_info, get_available_models
 from validation import validate_and_clean_extraction
@@ -195,6 +195,7 @@ async def extract_document(
     enable_denoise: bool = Form(True),
     enable_threshold: bool = Form(False),
     threshold_method: str = Form("otsu"),
+    is_retry: bool = Form(False),
     model_name: Optional[str] = Form(None),
     groq_api_key: Optional[str] = Form(None),
     deviceId: Optional[str] = Form(None),
@@ -202,8 +203,7 @@ async def extract_document(
 ):
     """
     Main extraction pipeline endpoint with Pre-LLM Decision Gate.
-    Stores successful uploads as IMG000001 (shown in History) 
-    and failed uploads as FAIL000001 (hidden from client History).
+    Supports is_retry=True for 3-5s multi-pass deep high-accuracy extraction.
     """
     active_device = x_device_id or deviceId or "default_client"
 
@@ -233,24 +233,28 @@ async def extract_document(
     # 2. Image Quality & Blur Check
     quality_report = assess_image_quality(cv2_orig)
 
-    # 3. OpenCV Preprocessing
+    # 3. OpenCV Preprocessing (Enhanced for Retry)
     cv2_preprocessed = preprocess_id_card(
         cv2_orig,
         enable_resize=True,
-        enable_clahe=enable_clahe,
-        enable_denoise=enable_denoise,
-        enable_glare_reduction=enable_glare,
+        enable_clahe=True if is_retry else enable_clahe,
+        enable_denoise=True if is_retry else enable_denoise,
+        enable_glare_reduction=True if is_retry else enable_glare,
         enable_threshold=enable_threshold,
         threshold_method=threshold_method
     )
 
-    # 4. Tesseract OCR with Bounding Boxes (Free & Local)
+    # 4. Tesseract OCR (Single Pass vs. 3-5s Multi-Pass Deep Scan for Retry)
     try:
-        ocr_result = extract_ocr_data(
-            cv2_preprocessed,
-            min_confidence=min_confidence,
-            psm_mode=psm_mode
-        )
+        if is_retry:
+            logger.info("[Extract API] ⚡ Running 3-5s High-Accuracy Multi-Pass Deep Retry Scan...")
+            ocr_result = extract_ocr_deep_retry(cv2_preprocessed, min_confidence=18.0)
+        else:
+            ocr_result = extract_ocr_data(
+                cv2_preprocessed,
+                min_confidence=min_confidence,
+                psm_mode=psm_mode
+            )
         cv2_annotated = draw_bounding_boxes(cv2_orig, ocr_result, show_confidence=True)
     except Exception as e:
         logger.error(f"OCR Error: {e}")

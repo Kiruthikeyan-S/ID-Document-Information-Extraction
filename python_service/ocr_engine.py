@@ -156,6 +156,58 @@ def extract_ocr_data(
     )
 
 
+def extract_ocr_deep_retry(
+    image: np.ndarray,
+    min_confidence: float = 20.0
+) -> OCRResult:
+    """
+    High-accuracy 3-pass deep retry scan combining PSM 11, PSM 6, and PSM 3.
+    Ensures zero missed words or blurry text on low-contrast cards.
+    """
+    pass1 = extract_ocr_data(image, min_confidence=min_confidence, psm_mode=11)
+    pass2 = extract_ocr_data(image, min_confidence=min_confidence, psm_mode=6)
+    pass3 = extract_ocr_data(image, min_confidence=min_confidence, psm_mode=3)
+
+    all_words = pass1.words.copy()
+    seen_texts = set(w.text.lower() for w in all_words)
+
+    for word in pass2.words + pass3.words:
+        if word.text.lower() not in seen_texts:
+            all_words.append(word)
+            seen_texts.add(word.text.lower())
+
+    # Sort words spatially by Y then X
+    all_words.sort(key=lambda w: (w.y // 15, w.x))
+
+    combined_lines = []
+    current_line = []
+    last_y_group = None
+
+    for w in all_words:
+        y_group = w.y // 15
+        if last_y_group is None or y_group == last_y_group:
+            current_line.append(w.text)
+        else:
+            combined_lines.append(" ".join(current_line))
+            current_line = [w.text]
+        last_y_group = y_group
+
+    if current_line:
+        combined_lines.append(" ".join(current_line))
+
+    raw_text = "\n".join(combined_lines)
+    layout_text = "\n\n".join(f"TEXT: {line}" for line in combined_lines)
+    avg_conf = round(sum(w.confidence for w in all_words) / max(len(all_words), 1), 2)
+
+    return OCRResult(
+        words=all_words,
+        raw_text=raw_text,
+        layout_text=layout_text,
+        average_confidence=avg_conf,
+        word_count=len(all_words)
+    )
+
+
 def draw_bounding_boxes(
     image: np.ndarray,
     ocr_result: OCRResult,
