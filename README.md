@@ -62,6 +62,87 @@
 
 ---
 
+## 🔄 Data Transformation Flow — Image → JSON
+
+| Stage | Input Data | Process & Technology | Output Data |
+| :--- | :--- | :--- | :--- |
+| **① Raw Image Intake** | Physical ID Card Photo | User selects file; browser inspects MIME `image/*` (`UploadZone.jsx`) | Browser `File` object in RAM |
+| **⑤ Preprocessing** | Raw binary image bytes | OpenCV `cvtColor` BGR→Gray, CLAHE glare removal, Adaptive Threshold (`preprocessing.py`) | Cleaned 2D NumPy Pixel Array `(H, W)` |
+| **⑥ OCR Extraction** | Cleaned NumPy Pixel Array | PyTesseract `image_to_data` spatial bounding box & 2D word map (`ocr_engine.py`) | Dict of words + X/Y pixel coordinates + confidence % |
+| **⑦ AI Semantic Extract** | Spatial layout word map | Groq LPU Llama 3.3 70B @ 600 tokens/sec schema parsing (`llm_extractor.py`) | Contextually parsed key-value JSON |
+| **④ Response & Masking** | Parsed LLM JSON | Pydantic validation, Verhoeff checksum, first 8 Aadhaar digits masked (`validation.py`) | Structured HTTP 200 JSON payload |
+| **⑧ Human Confirmation** | Extracted JSON preview | User reviews data & clicks **`✓ Correct`** or **`✗ Wrong`** (`ResultsView.jsx`) | Confirmed or Rejected status signal |
+| **⑨ Database Storage** | Verified payload | MongoDB Atlas multi-collection write (`verifications` vs `failed_verifications`) (`storage.py`) | Saved record `IMG000001` or `FAIL000001` with 30-day TTL |
+
+### Code Flow Highlights:
+
+```python
+# 1. Image Bytes to NumPy Array (RAM Processing)
+buf = io.BytesIO(contents)
+pil_img = Image.open(buf)
+cv2_img = np.array(pil_img)[:, :, ::-1].copy()
+
+# 2. OpenCV Preprocessing & Glare Removal
+gray = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2GRAY)
+clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+binary = cv2.adaptiveThreshold(clahe.apply(gray), 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 21, 11)
+
+# 3. Tesseract OCR Bounding Box Extraction
+ocr_data = pytesseract.image_to_data(binary, output_type=pytesseract.Output.DICT, config='--oem 3 --psm 11')
+
+# 4. Groq LPU Llama 3.3 70B Extraction
+response = groq_client.chat.completions.create(
+    model="llama-3.3-70b-versatile",
+    messages=[{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": ocr_data["text"]}],
+    response_format={"type": "json_object"},
+    temperature=0.1
+)
+```
+
+---
+
+## 🖼️ How a NumPy Pixel Array Works
+
+In computer vision, an image is stored as a 3D **NumPy array** (grid of numbers representing colors).
+
+### 1. What is a Pixel?
+Every pixel is represented by 3 color channel numbers from `0` (dark) to `255` (bright):
+* `(255, 255, 255)` = Pure White (Card background)
+* `(0, 0, 0)` = Pure Black (Printed text letters)
+* `(180, 165, 142)` = Grey/Brown (Lamination glare or shadows)
+
+### 2. NumPy Array Shape:
+A typical $1920 \times 1080$ resolution ID card photo has:
+$$\text{image.shape} = (1080, 1920, 3)$$
+* **Height**: 1080 pixel rows
+* **Width**: 1920 pixel columns
+* **Channels**: 3 color channels (Blue, Green, Red in OpenCV BGR)
+* **Total memory stored**: $1080 \times 1920 \times 3 = \mathbf{6,220,800 \text{ numbers in RAM}}$
+
+### 3. The 4 Image Cleaning Transformations:
+
+```text
+  Raw BGR Pixel [29, 38, 45] (3 numbers per pixel)
+              │
+              ▼ 1. Grayscale (cv2.cvtColor)
+  Single Grey Pixel: 37 (1 number per pixel)
+              │
+              ▼ 2. Contrast Balance (cv2.createCLAHE)
+  Balanced Pixel: 32 (glare & dark spots normalized)
+              │
+              ▼ 3. Denoise (cv2.fastNlMeansDenoising)
+  Denoised Pixel: 0 (random noise speckles removed)
+              │
+              ▼ 4. Adaptive Thresholding (cv2.adaptiveThreshold)
+  Final Binary Pixel: 0 (PURE BLACK TEXT) or 255 (PURE WHITE BACKGROUND)
+```
+
+### 4. Why Tesseract OCR Needs a Clean Array:
+* **Dirty Array (Unprocessed)**: Lamination glare makes pixels blurry grey $\rightarrow$ Tesseract gets confused and misreads `KIRUTHIKEYAN` as `K1RUTH1KEYAN` or `2378 4582 7645` as `2378 45B2 7G45`.
+* **Cleaned Array (Binarized)**: Every pixel is strictly `0` (text ink) or `255` (white background) $\rightarrow$ Tesseract reads letters with **> 90% confidence**, producing clean text for Groq Llama 3.3 70B.
+
+---
+
 ## 📊 End-to-End System Architecture & Multi-Entry Flow
 
 
