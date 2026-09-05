@@ -196,57 +196,6 @@ export default function App() {
         {/* Results Dashboard */}
         {extractionResult && (
           <div className="space-y-4 animate-in fade-in-50 duration-300">
-            
-            {/* Tab Navigation */}
-            <div className="flex border-b border-slate-200 space-x-2">
-              <button
-                onClick={() => setActiveTab('fields')}
-                className={`flex items-center space-x-2 py-2.5 px-4 rounded-t-xl text-xs font-bold transition border-b-2 ${
-                  activeTab === 'fields'
-                    ? 'border-sky-600 text-sky-700 bg-white shadow-sm'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>Extracted Fields</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('pipeline')}
-                className={`flex items-center space-x-2 py-2.5 px-4 rounded-t-xl text-xs font-bold transition border-b-2 ${
-                  activeTab === 'pipeline'
-                    ? 'border-sky-600 text-sky-700 bg-white shadow-sm'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <Eye className="w-4 h-4" />
-                <span>Visual Pipeline</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('ocr')}
-                className={`flex items-center space-x-2 py-2.5 px-4 rounded-t-xl text-xs font-bold transition border-b-2 ${
-                  activeTab === 'ocr'
-                    ? 'border-sky-600 text-sky-700 bg-white shadow-sm'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <FileText className="w-4 h-4" />
-                <span>Raw OCR Text</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('json')}
-                className={`flex items-center space-x-2 py-2.5 px-4 rounded-t-xl text-xs font-bold transition border-b-2 ${
-                  activeTab === 'json'
-                    ? 'border-sky-600 text-sky-700 bg-white shadow-sm'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <Code className="w-4 h-4" />
-                <span>JSON Payload</span>
-              </button>
-            </div>
 
             {/* Tab 1: Extracted Fields Card */}
             {activeTab === 'fields' && (
