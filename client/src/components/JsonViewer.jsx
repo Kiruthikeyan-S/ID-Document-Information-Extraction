@@ -5,31 +5,41 @@ export default function JsonViewer({ data, fileName }) {
   const [copied, setCopied] = useState(false);
   const [showFullImages, setShowFullImages] = useState(false);
 
-  // Safely parse data whether it's an object or a JSON string
-  const cleanData = useMemo(() => {
-    if (!data) return null;
-    let parsed = data;
-    if (typeof data === 'string') {
-      try {
-        parsed = JSON.parse(data);
-      } catch (e) {
-        parsed = { rawText: data };
-      }
-    }
-
-    // Create a copy for display
-    const obj = JSON.parse(JSON.stringify(parsed));
-
-    // Summarize heavy base64 image strings unless full images toggled
-    if (!showFullImages && obj.images && typeof obj.images === 'object') {
-      Object.keys(obj.images).forEach(key => {
-        if (typeof obj.images[key] === 'string' && obj.images[key].startsWith('data:image')) {
-          obj.images[key] = `[Base64 Image Data — ${Math.round(obj.images[key].length / 1024)} KB]`;
+  const jsonString = useMemo(() => {
+    if (!data) return '';
+    try {
+      let obj = data;
+      if (typeof data === 'string') {
+        try {
+          obj = JSON.parse(data);
+        } catch (e) {
+          return data;
         }
-      });
-    }
+      }
 
-    return obj;
+      // Clone object safely
+      let displayObj;
+      try {
+        displayObj = JSON.parse(JSON.stringify(obj));
+      } catch (e) {
+        displayObj = { ...obj };
+      }
+
+      // Summarize heavy base64 images
+      if (!showFullImages && displayObj && displayObj.images && typeof displayObj.images === 'object') {
+        Object.keys(displayObj.images).forEach(key => {
+          const val = displayObj.images[key];
+          if (typeof val === 'string' && val.startsWith('data:image')) {
+            displayObj.images[key] = `[Base64 Image Data — ${Math.round(val.length / 1024)} KB]`;
+          }
+        });
+      }
+
+      return JSON.stringify(displayObj, null, 2);
+    } catch (err) {
+      console.error('JsonViewer stringify error:', err);
+      return String(data);
+    }
   }, [data, showFullImages]);
 
   if (!data) {
@@ -41,24 +51,30 @@ export default function JsonViewer({ data, fileName }) {
     );
   }
 
-  const jsonString = JSON.stringify(cleanData, null, 2);
-
   const handleCopy = () => {
-    navigator.clipboard.writeText(JSON.stringify(cleanData, null, 2));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      navigator.clipboard.writeText(jsonString);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (e) {
+      console.error('Copy failed:', e);
+    }
   };
 
   const handleDownload = () => {
-    const blob = new Blob([JSON.stringify(cleanData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${fileName || 'document_extraction'}_${Date.now()}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    try {
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${fileName || 'document_extraction'}_${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Download failed:', e);
+    }
   };
 
   return (
