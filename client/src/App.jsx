@@ -286,7 +286,7 @@ export default function App() {
             {activeTab === 'json' && (
               <JsonViewer
                 data={extractionResult}
-                fileName={`${extractionResult.document_type || 'document'}_${selectedFile?.name ? selectedFile.name.replace(/\.[^/.]+$/, '') : 'record'}`}
+                fileName={`${extractionResult.document_type}_${selectedFile?.name.replace(/\.[^/.]+$/, '')}`}
               />
             )}
 

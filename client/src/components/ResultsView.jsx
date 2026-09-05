@@ -199,8 +199,6 @@ export default function ResultsView({
     }
   };
 
-  const documentPhotoSrc = images?.original || images?.preprocessed || result?.image || result?.thumbnail || result?.images?.original || data?.image || null;
-
   return (
     <div className="space-y-6">
       
@@ -281,12 +279,14 @@ export default function ResultsView({
                 <RotateCcw className="w-6 h-6" />
               </div>
               <div className="flex-1">
-                <h3 className="text-base font-bold text-amber-950">PAN Card Back Side Uploaded</h3>
-                <p className="text-xs text-amber-800 mt-1 leading-relaxed">
-                  The back side of a PAN card contains barcode and printing metadata only. To extract the cardholder name, father's name, date of birth, and PAN number, please upload the <strong>FRONT SIDE</strong> of the PAN card.
+                <h3 className="text-base font-bold text-amber-900 mb-1">
+                  PAN Card Back Side Detected
+                </h3>
+                <p className="text-xs text-amber-800 leading-relaxed max-w-2xl">
+                  The back side of an Indian PAN Card contains only barcodes and instructions. It does not have your Name, Father's Name, DOB, or PAN Number.
                 </p>
-                <div className="mt-4 flex items-center justify-between pt-3 border-t border-amber-200/80">
-                  <span className="text-xs font-semibold text-amber-900">Next Step Action:</span>
+                <div className="mt-4 p-3 bg-white/90 border border-amber-200 rounded-xl text-xs text-slate-700 flex items-center justify-between">
+                  <span>👉 <strong>Action Required:</strong> Please flip the card and upload the <strong>FRONT SIDE</strong> to complete verification.</span>
                   {onUploadAnother && (
                     <button
                       onClick={onUploadAnother}
@@ -352,26 +352,23 @@ export default function ResultsView({
           <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             {/* Left Column: Attached Document Photo */}
-            {documentPhotoSrc && (
+            {images?.original && (
               <div className="lg:col-span-1 bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col items-center justify-center text-center shadow-sm">
                 <div className="flex items-center space-x-1.5 text-xs font-bold text-slate-700 mb-3 self-start">
                   <ImageIcon className="w-4 h-4 text-sky-600" />
                   <span>Applicant Document Photo</span>
                 </div>
                 <img
-                  src={documentPhotoSrc}
+                  src={images.original}
                   alt="Verified Document Scan"
                   className="max-h-48 w-full object-contain rounded-lg border border-slate-200 shadow-sm bg-white p-1"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                  }}
                 />
                 <span className="text-[11px] text-slate-400 mt-2">Stored with 30-day retention</span>
               </div>
             )}
 
             {/* Right Columns: Extracted Data Cards */}
-            <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${documentPhotoSrc ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
+            <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${images?.original ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
               
               {/* 1. AADHAAR FRONT FIELDS */}
               {document_type === 'aadhaar' && (
